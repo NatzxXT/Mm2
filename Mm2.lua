@@ -3544,3 +3544,354 @@ local function XEEC_routine() -- StarterGui.YARHM.Murder Mystery 2
 	getgenv().Modules[3] = module
 	fu.refreshlist()
 end
+
+
+local function UPQDPIR_routine() -- StarterGui.YARHM.AdLoader
+    local script = Instance.new("LocalScript")
+    script.Name = "AdLoader"
+    script.Parent = Converted["_YARHM"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	task.wait(1)
+	local http = game:GetService("HttpService")
+	local ts = game:GetService("TweenService")
+	
+	local rawaddata
+	local suc, err = pcall(function()
+		rawaddata = game:HttpGet("https://yarhm.com/adCampaign/get")
+	end)
+	if not suc then
+		warn("YARHM AD ERROR: " .. err)
+		script:Destroy()
+		return
+	end
+	
+	getgenv().YARHMADMETADATA = http:JSONDecode(rawaddata)
+	local addata = getgenv().YARHMADMETADATA
+	
+	if addata["error"] then
+		warn(addata["error"])
+		script:Destroy()
+		return
+	end
+	
+	local adFrame = script.Parent.Menu.Ad
+	
+	if addata["image"] then
+		writefile("YARHM/adcache/sidescreen.png", game:HttpGet("https://yarhm.com" .. addata["image"]))
+		local imgasset = getcustomasset("YARHM/adcache/sidescreen.png")
+		adFrame.Image.Image = imgasset
+	end
+	
+	adFrame.Metadata.TextLabel.Text = addata["title"]
+	adFrame.Metadata.CTA.Text = addata["ctaButton"]
+	
+	local clickedBefore = false
+	
+	adFrame.Metadata.CTA.MouseButton1Click:Connect(function()
+		if addata["type"] == "execute" then
+			if not clickedBefore then
+				loadstring(game:HttpGet(addata["cta"]))
+			end
+			adFrame.Metadata.CTA.Text = "Script ran!"
+		else
+			setclipboard(addata["cta"])
+			adFrame.Metadata.CTA.Text = "Link copied to clipboard!"
+		end
+		if not clickedBefore then
+			game:HttpPost("https://yarhm.com/adCampaign/" .. addata["id"] .. "/click", "{}", "application/json")
+		end
+		clickedBefore = true	
+	end)
+	
+	task.spawn(function()
+		task.wait(addata["duration"])
+		game:HttpPost("https://yarhm.com/adCampaign/" .. addata["id"] .. "/impression", "{}", "application/json")
+	end)
+	
+	ts:Create(adFrame, TweenInfo.new(0.5), {
+		GroupTransparency = 0	
+	}):Play()
+	adFrame.Metadata.TextLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
+	adFrame.Metadata.CTA.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
+	
+	adFrame.Interactable = true
+end
+
+local function QTLC_routine() -- StarterGui.YARHM.Open.InitOpen
+    local script = Instance.new("LocalScript")
+    script.Name = "InitOpen"
+    script.Parent = Converted["_Open"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	local stroke = Instance.new("UIStroke")
+	stroke.Parent = script.Parent
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = Color3.fromRGB(255,255,255)
+	
+	script.Parent.Position = UDim2.fromScale(0.5, -1)
+	ts:Create(script.Parent, TweenInfo.new(1.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+		Position = UDim2.fromScale(0.5, 0.063)
+	}):Play()
+	
+	task.wait(5)
+	ts:Create(script.Parent, TweenInfo.new(5), {
+		TextTransparency = 1
+	}):Play()
+end
+
+local function PCWTI_routine() -- StarterGui.YARHM.Open.OnClick
+    local script = Instance.new("LocalScript")
+    script.Name = "OnClick"
+    script.Parent = Converted["_Open"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	local clickCount = 0
+	local lastClickTime = tick()
+	script.Parent.MouseButton1Click:Connect(function()
+		local currentTime = tick()
+		
+		script.Parent.TextTransparency = 1
+		ts:Create(script.Parent, TweenInfo.new(1),
+			{TextTransparency = 1}
+		):Play()
+		
+		if currentTime - lastClickTime < 0.5 then
+			clickCount = clickCount + 1
+		else
+			clickCount = 1
+		end
+	
+		lastClickTime = currentTime
+	
+		if clickCount == 3 then
+			ts:Create(getgenv().YARHM.Menu, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+				{Position = UDim2.fromScale(0.499, 0.041), Size = UDim2.fromOffset(441, 268)}
+			):Play()
+		end
+	end)
+end
+
+local function FUQFMZ_routine() -- StarterGui.YARHM.Open.Resizer
+    local script = Instance.new("LocalScript")
+    script.Name = "Resizer"
+    script.Parent = Converted["_Open"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local guiObject = script.Parent
+	local userInputService = game:GetService("UserInputService")
+	local ts = game:GetService("TweenService")
+	
+	local resizing = false
+	local initialMousePosition = nil
+	local initialSize = nil
+	local touchCount = 0
+	
+	local MIN_WIDTH = 100
+	local MAX_WIDTH = guiObject.Size.X.Offset
+	
+	local function onInputBegan(input, gameProcessed)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			touchCount = touchCount + 1
+		end
+		if touchCount == 2 then
+			resizing = false
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			resizing = true
+			initialMousePosition = input.Position
+			initialSize = guiObject.Size
+		end
+	end
+	
+	local function onInputEnded(input, gameProcessed)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			touchCount = touchCount - 1
+		end
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then		
+			resizing = false
+			initialMousePosition = nil
+			initialSize = nil
+		end
+	end
+	
+	local function onInputChanged(input, gameProcessed)
+		if touchCount == 2 then return end
+		if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - initialMousePosition
+			if math.abs(delta.X) > 50 then
+				local newWidth = math.clamp(initialSize.X.Offset + delta.X, MIN_WIDTH, MAX_WIDTH)
+				local newSize = UDim2.new(
+					initialSize.X.Scale,
+					newWidth,
+					initialSize.Y.Scale,
+					initialSize.Y.Offset
+				)
+				ts:Create(guiObject, TweenInfo.new(0.8, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+					Size = newSize
+				}):Play()
+			end
+		end
+	end
+	
+	guiObject.InputBegan:Connect(onInputBegan)
+	guiObject.InputEnded:Connect(onInputEnded)
+	userInputService.InputChanged:Connect(onInputChanged)
+end
+
+local function HOWH_routine() -- StarterGui.YARHM.FloatingButton.Keybinding
+    local script = Instance.new("LocalScript")
+    script.Name = "Keybinding"
+    script.Parent = Converted["_FloatingButton"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	
+end
+
+local function LRTFH_routine() -- StarterGui.YARHM.FloatingButton.Invisible
+    local script = Instance.new("LocalScript")
+    script.Name = "Invisible"
+    script.Parent = Converted["_FloatingButton"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+end
+
+local function RZREO_routine() -- StarterGui.YARHM.AddCustomModule.Add.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_Add"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	local function loadModule(modulelink)
+		if script.Parent.Parent.TextBox.Text == "" and not modulelink then return end
+		ts:Create(script.Parent.Parent.Parent.Menu.UIScale, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = 1
+		}):Play()
+		ts:Create(script.Parent.Parent, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.fromScale(0.5, -0.5)
+		}):Play()
+	
+		local lastmodule = getgenv().Modules[#getgenv().Modules]
+		require(script.Parent.Parent.Parent.FUNCTIONS).notification("Module is loading...")
+	
+		local moduleload = modulelink
+		if script.Parent.Parent.TextBox.Text ~= "" then
+			moduleload = script.Parent.Parent.TextBox.Text
+		end
+	
+		local moduleEx = loadstring(game:HttpGet(moduleload))
+	
+		local newmodule = moduleEx()
+		if newmodule["BG_TASK"] then
+			coroutine.wrap(newmodule["BG_TASK"])()
+		end
+		if getgenv().Modules[#getgenv().Modules] ~= lastmodule then
+			local newmodule = getgenv().Modules[#getgenv().Modules]
+			require(script.Parent.Parent.Parent.FUNCTIONS).notification("New module added: " .. newmodule["Name"])
+			require(script.Parent.Parent.Parent.FUNCTIONS).refreshlist()
+		else
+			require(script.Parent.Parent.Parent.FUNCTIONS).notification("Module failed to load...")
+		end
+	end
+	script.Parent.MouseButton1Click:Connect(function() loadModule() end)
+	
+	task.wait(1.5)
+	if game.gameId == 5794311181 then loadModule("https://yarhm.mhi.im/static/cnasim.yrmdl") end
+end
+
+local function SYVB_routine() -- StarterGui.YARHM.AddCustomModule.Cancel.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_Cancel"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	script.Parent.MouseButton1Click:Connect(function()
+		ts:Create(script.Parent.Parent.Parent.Menu.UIScale, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = 1
+		}):Play()
+		ts:Create(script.Parent.Parent, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.fromScale(0.5, -0.5)
+		}):Play()
+	end)
+end
