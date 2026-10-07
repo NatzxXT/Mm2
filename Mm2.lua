@@ -13,16 +13,13 @@ local MM2_PLACE_IDS = {
 }
 
 local function isMM2()
-    -- Checagem SÓ por PlaceId (mais confiável)
     for _, id in ipairs(MM2_PLACE_IDS) do
         if game.PlaceId == id then return true end
     end
-    -- Fallback: nome EXATO (não substring)
     local gname = string.lower(game.Name or "")
     if gname == "murder mystery 2" or gname == "mm2" then
         return true
     end
-    -- Fallback: consulta oficial do Roblox
     local ok, info = pcall(function()
         return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
     end)
@@ -43,7 +40,7 @@ if not isMM2() then
     avisoGui.DisplayOrder = 9999
     pcall(function() avisoGui.Parent = game:GetService("CoreGui") end)
 
-    -- Pega nome real do jogo
+    -- Pega nome real do jogo via MarketplaceService
     local gameDisplayName = game.Name or "?"
     pcall(function()
         local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
@@ -89,7 +86,7 @@ if not isMM2() then
     msg.TextSize = 14
     msg.TextColor3 = Color3.fromRGB(230, 230, 240)
     msg.TextWrapped = true
-    msg.Text = "Este script só funciona no Murdery Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
+    msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
 
     task.spawn(function()
@@ -175,7 +172,6 @@ local Config = {
     AutoGrabGun_Delay = 1.0,
     AutoGrabGun_ReturnDelay = 0.4,
     AutoGrabGun_ReturnInstant = true,
-    -- Performance
     Perf_NoFog = false,
     Perf_NoShadow = false,
     Perf_SmoothTexture = false,
@@ -796,7 +792,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
---  PERFORMANCE (mudanças no Lighting)
+--  PERFORMANCE
 -- ============================================================
 local perfSaved = {}
 
@@ -816,11 +812,9 @@ local function restoreLighting(key)
     perfSaved[key] = nil
 end
 
--- Loop de performance (aplica continuamente porque o jogo pode resetar)
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
-            -- Full Bright
             if Config.Perf_FullBright then
                 saveLightingOnce("bright", { "Brightness", "Ambient", "OutdoorAmbient", "ClockTime" })
                 Lighting.Brightness = 3
@@ -831,7 +825,6 @@ task.spawn(function()
                 restoreLighting("bright")
             end
 
-            -- No Fog
             if Config.Perf_NoFog then
                 saveLightingOnce("fog", { "FogEnd", "FogStart", "FogColor" })
                 Lighting.FogEnd = 100000
@@ -840,11 +833,9 @@ task.spawn(function()
                 restoreLighting("fog")
             end
 
-            -- No Shadows
             if Config.Perf_NoShadow then
                 saveLightingOnce("shadow", { "GlobalShadows" })
                 Lighting.GlobalShadows = false
-                -- Desliga sombras em todos os objetos
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("BasePart") and obj.CastShadow then
                         pcall(function() obj.CastShadow = false end)
@@ -854,7 +845,6 @@ task.spawn(function()
                 restoreLighting("shadow")
             end
 
-            -- Smooth Texture
             if Config.Perf_SmoothTexture then
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("BasePart") then
@@ -1583,7 +1573,7 @@ MoveTab:CreateSlider({
     Callback = function(v) Config.InvisibleY = v end,
 })
 
--- PERFORMANCE
+-- Performance
 local PerfTab = Window:CreateTab("Performance", 4483362458)
 
 PerfTab:CreateToggle({
