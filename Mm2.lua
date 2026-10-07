@@ -1,7 +1,7 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - FINAL COMPLETO
+--  MM2 CHECK HUB v3 - FINAL OTIMIZADO
 --  Detecção MM2 • ESP • Aimbot • Trigger • AutoKill • Farm
---  GrabGun • Invisible • Anti-Fling c/ Colisão • Performance
+--  GrabGun • Invisible • Anti-Fling • Performance
 -- ============================================================
 
 -- ============================================================
@@ -74,7 +74,6 @@ if not isMM2() then
     msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
 
-    -- Atualiza nome real em background (não trava)
     task.spawn(function()
         pcall(function()
             local HttpService = game:GetService("HttpService")
@@ -339,25 +338,48 @@ local function hasLineOfSight(originPos, targetPos, targetChar)
 end
 
 -- ============================================================
---  FINDERS
+--  FINDERS (OTIMIZADO)
 -- ============================================================
+local gunCache = { obj = nil, time = 0 }
+
 local function findDroppedGunPart()
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    local now = tick()
+    if gunCache.obj and gunCache.obj.Parent and now - gunCache.time < 2 then
+        return gunCache.obj
+    end
+
+    for _, obj in ipairs(workspace:GetChildren()) do
         if obj:IsA("Tool") then
             local n = obj.Name:lower()
             if n:find("gun") or n:find("revolver") or n:find("pistol") then
-                if not isInAnyCharacter(obj) then return obj end
+                if not isInAnyCharacter(obj) then
+                    gunCache.obj = obj
+                    gunCache.time = now
+                    return obj
+                end
             end
         end
     end
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") or obj:IsA("Model") then
-            local n = obj.Name:lower()
-            if n == "gun" or n == "revolver" or n:find("droppedgun") or n:find("dropped_gun") then
-                if not isInAnyCharacter(obj) then return obj end
+
+    for _, folderName in ipairs({"Guns", "Items", "Tools", "Weapons", "DroppedItems"}) do
+        local folder = workspace:FindFirstChild(folderName)
+        if folder then
+            for _, obj in ipairs(folder:GetChildren()) do
+                if obj:IsA("Tool") or obj:IsA("BasePart") or obj:IsA("Model") then
+                    local n = obj.Name:lower()
+                    if n:find("gun") or n:find("revolver") or n:find("pistol") then
+                        if not isInAnyCharacter(obj) then
+                            gunCache.obj = obj
+                            gunCache.time = now
+                            return obj
+                        end
+                    end
+                end
             end
         end
     end
+
+    gunCache.obj = nil
     return nil
 end
 
@@ -366,7 +388,7 @@ end
 -- ============================================================
 local espCache = {}
 local nameCache = {}
-local ESP_UPDATE_INTERVAL = 0.25
+local ESP_UPDATE_INTERVAL = 0.35
 local ESP_MAX_DISTANCE = 400
 
 local function removeHighlight(player)
@@ -780,7 +802,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.04) do
+    while task.wait(0.05) do
         if Config.TriggerBot then pcall(handleTriggerBot) end
     end
 end)
@@ -796,11 +818,319 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(0.5) do pcall(updateGunESP) end
+    while task.wait(1) do pcall(updateGunESP) end
 end)
 
 -- ============================================================
---  ANTI-FLING COM COLLISION GROUP
+--  PERFORMANCE (OTIMIZADO)
+-- ============================================================
+local perfSaved = {}
+local savedMaterials = setmetatable({}, { __mode = "k" })
+local savedShadows = setmetatable({}, { __mode = "k" })
+local perfState = { nofog = false, noshadow = false, smooth = false, bright = false }
+
+local function saveLightingOnce(key, props)
+    if perfSaved[key] then return end
+    perfSaved[key] = {}
+    for _, p in ipairs(props) do perfSaved[key][p] = Lighting[p] end
+end
+
+local function restoreLighting(key)
+    if not perfSaved[key] then return end
+    for p, v in pairs(perfSaved[key]) do
+        pcall(function() Lighting[p] = v end)
+    end
+    perfSaved[key] = nil
+end
+
+local function applyPartPerf(part)
+    if not part:IsA("BasePart") then return end
+    if perfState.noshadow then
+        if savedShadows[part] == nil then savedShadows[part] = part.CastShadow end
+        pcall(function() part.CastShadow = false end)
+    end
+    if perfState.smooth then
+        if savedMaterials[part] == nil then savedMaterials[part] = part.Material end
+        pcall(function() part.Material = Enum.Material.SmoothPlastic end)
+    end
+end
+
+workspace.DescendantAdded:Connect(function(obj)
+    if perfState.noshadow or perfState.smooth then
+        pcall(applyPartPerf, obj)
+    end
+end)
+
+local function restoreMaterials()
+    for obj, mat in pairs(savedMaterials) do
+        if obj and obj.Parent then pcall(function() obj.Material = mat end) end
+    end
+end
+
+local function restoreShadows()
+    for obj, sh in pairs(savedShadows) do
+        if obj and obj.Parent then pcall(function() obj.CastShadow = sh end) end
+    end
+end
+
+local function bulkApply()
+    task.spawn(function()
+        local count = 0
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                applyPartPerf(obj)
+                count = count + 1
+                if count % 500 == 0 then task.wait() end
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            if Config.Perf_FullBright and not perfState.bright then
+                saveLightingOnce("bright", { "Brightness", "Ambient", "OutdoorAmbient", "ClockTime" })
+                Lighting.Brightness = 3
+                Lighting.ClockTime = 14
+                Lighting.Ambient = Color3.fromRGB(200, 200, 200)
+                Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+                perfState.bright = true
+            elseif not Config.Perf_FullBright and perfState.bright then
+                restoreLighting("bright")
+                perfState.bright = false
+            end
+
+            if Config.Perf_NoFog and not perfState.nofog then
+                saveLightingOnce("fog", { "FogEnd", "FogStart", "FogColor" })
+                Lighting.FogEnd = 100000
+                Lighting.FogStart = 100000
+                perfState.nofog = true
+            elseif not Config.Perf_NoFog and perfState.nofog then
+                restoreLighting("fog")
+                perfState.nofog = false
+            end
+
+            if Config.Perf_NoShadow and not perfState.noshadow then
+                saveLightingOnce("shadow", { "GlobalShadows" })
+                Lighting.GlobalShadows = false
+                perfState.noshadow = true
+                bulkApply()
+            elseif not Config.Perf_NoShadow and perfState.noshadow then
+                restoreLighting("shadow")
+                restoreShadows()
+                perfState.noshadow = false
+            end
+
+            if Config.Perf_SmoothTexture and not perfState.smooth then
+                perfState.smooth = true
+                bulkApply()
+            elseif not Config.Perf_SmoothTexture and perfState.smooth then
+                restoreMaterials()
+                perfState.smooth = false
+            end
+        end)
+    end
+end)
+
+-- ============================================================
+--  AUTO FARM
+-- ============================================================
+local CoinFarm = { Enabled = false, Speed = 0.4, MaxCoins = 40 }
+local coinAttempts = {}
+local coinBlacklist = {}
+local BLACKLIST_TIME = 8
+local MAX_ATTEMPTS = 3
+
+local function isBlacklisted(obj)
+    local t = coinBlacklist[obj]
+    if not t then return false end
+    if tick() - t > BLACKLIST_TIME then
+        coinBlacklist[obj] = nil
+        coinAttempts[obj] = nil
+        return false
+    end
+    return true
+end
+
+local function findCoins()
+    local coins = {}
+    local seen = {}
+    local function scanRoot(root)
+        for _, obj in ipairs(root:GetDescendants()) do
+            if (obj:IsA("BasePart") or obj:IsA("MeshPart")) and not seen[obj] then
+                local n = obj.Name:lower()
+                if n:find("coin") or n:find("token") or n == "money" or n:find("gold") or n:find("cash") then
+                    if not isBlacklisted(obj) then
+                        local isInChar = false
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p.Character and obj:IsDescendantOf(p.Character) then
+                                isInChar = true break
+                            end
+                        end
+                        if not isInChar and obj.Parent then
+                            seen[obj] = true
+                            table.insert(coins, { obj = obj, pos = obj.Position })
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local coinsFolder = workspace:FindFirstChild("Coins")
+    if coinsFolder then scanRoot(coinsFolder) end
+    local ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("Ignore")
+    if ignored then scanRoot(ignored) end
+    scanRoot(workspace)
+    return coins
+end
+
+local function getMyCoinCount()
+    local stats = LocalPlayer:FindFirstChild("leaderstats")
+    if stats then
+        local c = stats:FindFirstChild("Coins") or stats:FindFirstChild("Coin")
+        if c then return c.Value end
+    end
+    return 0
+end
+
+local function collectCoin(coinObj, coinPos)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.CFrame = CFrame.new(coinPos + Vector3.new(0, 1, 0))
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    task.wait(0.05)
+    local prompt = coinObj:FindFirstChildOfClass("ProximityPrompt")
+    if prompt then pcall(function() fireproximityprompt(prompt) end) end
+    local cd = coinObj:FindFirstChildOfClass("ClickDetector")
+    if cd then pcall(function() fireclickdetector(cd) end) end
+    pcall(function()
+        firetouchinterest(hrp, coinObj, 0)
+        firetouchinterest(hrp, coinObj, 1)
+        task.wait(0.03)
+        firetouchinterest(hrp, coinObj, 0)
+        firetouchinterest(hrp, coinObj, 1)
+        task.wait(0.03)
+        firetouchinterest(hrp, coinObj, 0)
+        firetouchinterest(hrp, coinObj, 1)
+    end)
+end
+
+local farmRunning = false
+local function startCoinFarm()
+    if farmRunning then return end
+    farmRunning = true
+    task.spawn(function()
+        while CoinFarm.Enabled do
+            pcall(function()
+                local c = LocalPlayer.Character
+                if not c then return end
+                local h = c:FindFirstChild("HumanoidRootPart")
+                if not h then return end
+                local hum = c:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                if getMyCoinCount() >= CoinFarm.MaxCoins then
+                    CoinFarm.Enabled = false
+                    Rayfield:Notify({ Title = "Auto Farm", Content = "Limite atingido! Desligando...", Duration = 5 })
+                    return
+                end
+                local coins = findCoins()
+                if #coins == 0 then task.wait(0.5) return end
+                local myPos = h.Position
+                local closest, closestDistSq = nil, math.huge
+                for _, coin in ipairs(coins) do
+                    local dx = coin.pos.X - myPos.X
+                    local dy = coin.pos.Y - myPos.Y
+                    local dz = coin.pos.Z - myPos.Z
+                    local dSq = dx*dx + dy*dy + dz*dz
+                    if dSq < closestDistSq then
+                        closestDistSq = dSq
+                        closest = coin
+                    end
+                end
+                if closest then
+                    local obj = closest.obj
+                    coinAttempts[obj] = (coinAttempts[obj] or 0) + 1
+                    local beforeCount = getMyCoinCount()
+                    collectCoin(obj, closest.pos)
+                    task.wait(0.15)
+                    local afterCount = getMyCoinCount()
+                    local stillThere = obj.Parent ~= nil
+                    if afterCount > beforeCount or not stillThere then
+                        coinBlacklist[obj] = tick()
+                    elseif coinAttempts[obj] >= MAX_ATTEMPTS then
+                        coinBlacklist[obj] = tick()
+                    end
+                end
+            end)
+            task.wait(CoinFarm.Speed)
+        end
+        farmRunning = false
+    end)
+end
+
+-- ============================================================
+--  RENDERSTEPPED
+-- ============================================================
+RunService.RenderStepped:Connect(function()
+    fovCircle.Visible = Config.Show_FOV
+    if Config.Show_FOV then
+        local sz = Config.Aimbot_FOV * 2
+        if fovCircle.AbsoluteSize.X ~= sz then
+            fovCircle.Size = UDim2.new(0, sz, 0, sz)
+        end
+        trigCircle.Visible = Config.TriggerBot
+        if trigCircle.Visible then
+            local tsz = Config.TriggerBot_FOV * 2
+            if trigCircle.AbsoluteSize.X ~= tsz then
+                trigCircle.Size = UDim2.new(0, tsz, 0, tsz)
+            end
+        end
+    else
+        trigCircle.Visible = false
+    end
+
+    if Config.Aimbot then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local target = getTargetByRole(Config.Aimbot_FOV)
+            if target then
+                local head = target:FindFirstChild("Head")
+                if head then
+                    local desired = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+                    local smooth = Config.Aimbot_Instant and 1 or Config.Aimbot_Smoothness
+                    Camera.CFrame = Camera.CFrame:Lerp(desired, smooth)
+                end
+            end
+        end
+    end
+
+    if Config.Fly then
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dir = Vector3.new()
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+                if dir.Magnitude > 0 then
+                    hrp.Velocity = dir.Unit * Config.FlySpeed
+                else
+                    hrp.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end
+    end
+end)
+
+-- ============================================================
+--  ANTI-FLING COM COLLISION GROUP (OTIMIZADO)
 -- ============================================================
 pcall(function()
     PhysicsService:RegisterCollisionGroup("MM2_Self")
@@ -810,23 +1140,29 @@ pcall(function()
     PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false)
 end)
 
+local function applySelfGroupTo(part)
+    if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Self" then
+        pcall(function() part.CollisionGroup = "MM2_Self" end)
+    end
+end
+
+local function applyOthersGroupTo(part)
+    if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Others" then
+        pcall(function() part.CollisionGroup = "MM2_Others" end)
+    end
+end
+
 local function setSelfGroup()
     local char = LocalPlayer.Character
     if not char then return end
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Self" then
-            pcall(function() part.CollisionGroup = "MM2_Self" end)
-        end
-    end
+    for _, part in ipairs(char:GetDescendants()) do applySelfGroupTo(part) end
 end
 
 local function setOthersGroup()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             for _, part in ipairs(player.Character:GetDescendants()) do
-                if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Others" then
-                    pcall(function() part.CollisionGroup = "MM2_Others" end)
-                end
+                applyOthersGroupTo(part)
             end
         end
     end
@@ -864,13 +1200,35 @@ local function enableAntiFling()
     pcall(setOthersGroup)
 end
 
-task.spawn(function()
-    while task.wait(0.3) do
-        if Config.AntiFling then
-            pcall(setSelfGroup)
-            pcall(setOthersGroup)
+workspace.DescendantAdded:Connect(function(obj)
+    if not Config.AntiFling then return end
+    if not obj:IsA("BasePart") then return end
+    task.spawn(function()
+        local parentChar = obj:FindFirstAncestorOfClass("Model")
+        if not parentChar then return end
+        if parentChar == LocalPlayer.Character then
+            applySelfGroupTo(obj)
+        else
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character == parentChar then
+                    applyOthersGroupTo(obj)
+                    break
+                end
+            end
         end
+    end)
+end)
+
+Players.PlayerAdded:Connect(function()
+    task.wait(1)
+    if Config.AntiFling then
+        pcall(setSelfGroup)
+        pcall(setOthersGroup)
     end
+end)
+
+Players.PlayerRemoving:Connect(function()
+    if Config.AntiFling then pcall(setOthersGroup) end
 end)
 
 RunService.Heartbeat:Connect(function()
@@ -1133,307 +1491,6 @@ task.spawn(function()
                 end
             end
         end)
-    end
-end)
-
--- ============================================================
---  PERFORMANCE
--- ============================================================
-local perfSaved = {}
-local savedMaterials = setmetatable({}, { __mode = "k" })
-local savedShadows = setmetatable({}, { __mode = "k" })
-local perfState = { nofog = false, noshadow = false, smooth = false, bright = false }
-
-local function saveLightingOnce(key, props)
-    if perfSaved[key] then return end
-    perfSaved[key] = {}
-    for _, p in ipairs(props) do
-        perfSaved[key][p] = Lighting[p]
-    end
-end
-
-local function restoreLighting(key)
-    if not perfSaved[key] then return end
-    for p, v in pairs(perfSaved[key]) do
-        pcall(function() Lighting[p] = v end)
-    end
-    perfSaved[key] = nil
-end
-
-local function applySmoothPlastic()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            if savedMaterials[obj] == nil then savedMaterials[obj] = obj.Material end
-            pcall(function() obj.Material = Enum.Material.SmoothPlastic end)
-        end
-    end
-end
-
-local function restoreMaterials()
-    for obj, mat in pairs(savedMaterials) do
-        if obj and obj.Parent then
-            pcall(function() obj.Material = mat end)
-        end
-    end
-end
-
-local function applyNoShadow()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            if savedShadows[obj] == nil then savedShadows[obj] = obj.CastShadow end
-            pcall(function() obj.CastShadow = false end)
-        end
-    end
-end
-
-local function restoreShadows()
-    for obj, sh in pairs(savedShadows) do
-        if obj and obj.Parent then
-            pcall(function() obj.CastShadow = sh end)
-        end
-    end
-end
-
-task.spawn(function()
-    while task.wait(0.3) do
-        pcall(function()
-            if Config.Perf_FullBright and not perfState.bright then
-                saveLightingOnce("bright", { "Brightness", "Ambient", "OutdoorAmbient", "ClockTime" })
-                Lighting.Brightness = 3
-                Lighting.ClockTime = 14
-                Lighting.Ambient = Color3.fromRGB(200, 200, 200)
-                Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
-                perfState.bright = true
-            elseif not Config.Perf_FullBright and perfState.bright then
-                restoreLighting("bright")
-                perfState.bright = false
-            end
-
-            if Config.Perf_NoFog and not perfState.nofog then
-                saveLightingOnce("fog", { "FogEnd", "FogStart", "FogColor" })
-                Lighting.FogEnd = 100000
-                Lighting.FogStart = 100000
-                perfState.nofog = true
-            elseif not Config.Perf_NoFog and perfState.nofog then
-                restoreLighting("fog")
-                perfState.nofog = false
-            end
-
-            if Config.Perf_NoShadow and not perfState.noshadow then
-                saveLightingOnce("shadow", { "GlobalShadows" })
-                Lighting.GlobalShadows = false
-                perfState.noshadow = true
-            elseif not Config.Perf_NoShadow and perfState.noshadow then
-                restoreLighting("shadow")
-                restoreShadows()
-                perfState.noshadow = false
-            end
-            if Config.Perf_NoShadow then applyNoShadow() end
-
-            if Config.Perf_SmoothTexture and not perfState.smooth then
-                perfState.smooth = true
-            elseif not Config.Perf_SmoothTexture and perfState.smooth then
-                restoreMaterials()
-                perfState.smooth = false
-            end
-            if Config.Perf_SmoothTexture then applySmoothPlastic() end
-        end)
-    end
-end)
-
--- ============================================================
---  AUTO FARM
--- ============================================================
-local CoinFarm = { Enabled = false, Speed = 0.4, MaxCoins = 40 }
-local coinAttempts = {}
-local coinBlacklist = {}
-local BLACKLIST_TIME = 8
-local MAX_ATTEMPTS = 3
-
-local function isBlacklisted(obj)
-    local t = coinBlacklist[obj]
-    if not t then return false end
-    if tick() - t > BLACKLIST_TIME then
-        coinBlacklist[obj] = nil
-        coinAttempts[obj] = nil
-        return false
-    end
-    return true
-end
-
-local function findCoins()
-    local coins = {}
-    local seen = {}
-    local function scanRoot(root)
-        for _, obj in ipairs(root:GetDescendants()) do
-            if (obj:IsA("BasePart") or obj:IsA("MeshPart")) and not seen[obj] then
-                local n = obj.Name:lower()
-                if n:find("coin") or n:find("token") or n == "money" or n:find("gold") or n:find("cash") then
-                    if not isBlacklisted(obj) then
-                        local isInChar = false
-                        for _, p in ipairs(Players:GetPlayers()) do
-                            if p.Character and obj:IsDescendantOf(p.Character) then
-                                isInChar = true break
-                            end
-                        end
-                        if not isInChar and obj.Parent then
-                            seen[obj] = true
-                            table.insert(coins, { obj = obj, pos = obj.Position })
-                        end
-                    end
-                end
-            end
-        end
-    end
-    local coinsFolder = workspace:FindFirstChild("Coins")
-    if coinsFolder then scanRoot(coinsFolder) end
-    local ignored = workspace:FindFirstChild("Ignored") or workspace:FindFirstChild("Ignore")
-    if ignored then scanRoot(ignored) end
-    scanRoot(workspace)
-    return coins
-end
-
-local function getMyCoinCount()
-    local stats = LocalPlayer:FindFirstChild("leaderstats")
-    if stats then
-        local c = stats:FindFirstChild("Coins") or stats:FindFirstChild("Coin")
-        if c then return c.Value end
-    end
-    return 0
-end
-
-local function collectCoin(coinObj, coinPos)
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    hrp.CFrame = CFrame.new(coinPos + Vector3.new(0, 1, 0))
-    hrp.Velocity = Vector3.new(0, 0, 0)
-    task.wait(0.05)
-    local prompt = coinObj:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then pcall(function() fireproximityprompt(prompt) end) end
-    local cd = coinObj:FindFirstChildOfClass("ClickDetector")
-    if cd then pcall(function() fireclickdetector(cd) end) end
-    pcall(function()
-        firetouchinterest(hrp, coinObj, 0)
-        firetouchinterest(hrp, coinObj, 1)
-        task.wait(0.03)
-        firetouchinterest(hrp, coinObj, 0)
-        firetouchinterest(hrp, coinObj, 1)
-        task.wait(0.03)
-        firetouchinterest(hrp, coinObj, 0)
-        firetouchinterest(hrp, coinObj, 1)
-    end)
-end
-
-local farmRunning = false
-local function startCoinFarm()
-    if farmRunning then return end
-    farmRunning = true
-    task.spawn(function()
-        while CoinFarm.Enabled do
-            pcall(function()
-                local c = LocalPlayer.Character
-                if not c then return end
-                local h = c:FindFirstChild("HumanoidRootPart")
-                if not h then return end
-                local hum = c:FindFirstChildOfClass("Humanoid")
-                if not hum or hum.Health <= 0 then return end
-                if getMyCoinCount() >= CoinFarm.MaxCoins then
-                    CoinFarm.Enabled = false
-                    Rayfield:Notify({ Title = "Auto Farm", Content = "Limite atingido! Desligando...", Duration = 5 })
-                    return
-                end
-                local coins = findCoins()
-                if #coins == 0 then task.wait(0.5) return end
-                local myPos = h.Position
-                local closest, closestDistSq = nil, math.huge
-                for _, coin in ipairs(coins) do
-                    local dx = coin.pos.X - myPos.X
-                    local dy = coin.pos.Y - myPos.Y
-                    local dz = coin.pos.Z - myPos.Z
-                    local dSq = dx*dx + dy*dy + dz*dz
-                    if dSq < closestDistSq then
-                        closestDistSq = dSq
-                        closest = coin
-                    end
-                end
-                if closest then
-                    local obj = closest.obj
-                    coinAttempts[obj] = (coinAttempts[obj] or 0) + 1
-                    local beforeCount = getMyCoinCount()
-                    collectCoin(obj, closest.pos)
-                    task.wait(0.15)
-                    local afterCount = getMyCoinCount()
-                    local stillThere = obj.Parent ~= nil
-                    if afterCount > beforeCount or not stillThere then
-                        coinBlacklist[obj] = tick()
-                    elseif coinAttempts[obj] >= MAX_ATTEMPTS then
-                        coinBlacklist[obj] = tick()
-                    end
-                end
-            end)
-            task.wait(CoinFarm.Speed)
-        end
-        farmRunning = false
-    end)
-end
-
--- ============================================================
---  RENDERSTEPPED
--- ============================================================
-RunService.RenderStepped:Connect(function()
-    fovCircle.Visible = Config.Show_FOV
-    if Config.Show_FOV then
-        local sz = Config.Aimbot_FOV * 2
-        if fovCircle.AbsoluteSize.X ~= sz then
-            fovCircle.Size = UDim2.new(0, sz, 0, sz)
-        end
-        trigCircle.Visible = Config.TriggerBot
-        if trigCircle.Visible then
-            local tsz = Config.TriggerBot_FOV * 2
-            if trigCircle.AbsoluteSize.X ~= tsz then
-                trigCircle.Size = UDim2.new(0, tsz, 0, tsz)
-            end
-        end
-    else
-        trigCircle.Visible = false
-    end
-
-    if Config.Aimbot then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local target = getTargetByRole(Config.Aimbot_FOV)
-            if target then
-                local head = target:FindFirstChild("Head")
-                if head then
-                    local desired = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-                    local smooth = Config.Aimbot_Instant and 1 or Config.Aimbot_Smoothness
-                    Camera.CFrame = Camera.CFrame:Lerp(desired, smooth)
-                end
-            end
-        end
-    end
-
-    if Config.Fly then
-        local char = LocalPlayer.Character
-        if char then
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dir = Vector3.new()
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
-                if dir.Magnitude > 0 then
-                    hrp.Velocity = dir.Unit * Config.FlySpeed
-                else
-                    hrp.Velocity = Vector3.new(0, 0, 0)
-                end
-            end
-        end
     end
 end)
 
