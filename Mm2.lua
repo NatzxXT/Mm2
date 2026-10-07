@@ -1,7 +1,7 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - FINAL COMPLETO
---  Detecção • ESP • Aimbot • Trigger • AutoKill • Farm
---  GrabGun • Invisible • Anti-Fling • Performance • Extras
+--  MM2 CHECK HUB v3 - FINAL ORGANIZADO
+--  Visual • Visual+ • Aimbot • Murder • Sheriff • Farm
+--  Player • Performance • Extras • Teleporte • Protecao
 -- ============================================================
 
 -- ============================================================
@@ -194,6 +194,19 @@ local Config = {
     AntiRagdoll = false,
     KillNotifier = false,
     AutoDodge = false,
+    HitboxExpander = false,
+    HitboxSize = 5,
+    HitboxMaxDist = 200,
+    CoinESP = false,
+    RadarHUD = false,
+    AntiAFK = false,
+    MurdererAlert = false,
+    MurdererAlertRange = 80,
+    LockCameraMurderer = false,
+    AntiExplosion = false,
+    AutoReset = false,
+    FOV_Color_Aimbot = Color3.fromRGB(0, 200, 255),
+    FOV_Color_Trigger = Color3.fromRGB(255, 100, 100),
 }
 
 -- ============================================================
@@ -257,7 +270,7 @@ fovCircle.Parent = fovGui
 
 local fovStroke = Instance.new("UIStroke")
 fovStroke.Thickness = 1.5
-fovStroke.Color = Color3.fromRGB(0, 200, 255)
+fovStroke.Color = Config.FOV_Color_Aimbot
 fovStroke.Transparency = 0.3
 fovStroke.Parent = fovCircle
 
@@ -274,7 +287,7 @@ trigCircle.Parent = fovGui
 
 local trigStroke = Instance.new("UIStroke")
 trigStroke.Thickness = 1.5
-trigStroke.Color = Color3.fromRGB(255, 100, 100)
+trigStroke.Color = Config.FOV_Color_Trigger
 trigStroke.Transparency = 0.4
 trigStroke.Parent = trigCircle
 
@@ -824,7 +837,7 @@ task.spawn(function()
 end)
 
 -- ============================================================
---  EXTRAS
+--  EXTRAS — SISTEMAS
 -- ============================================================
 -- ANTI-KICK
 pcall(function()
@@ -929,7 +942,303 @@ task.spawn(function()
     end
 end)
 
--- KILL ALL
+-- ============================================================
+--  NOVAS FUNÇÕES
+-- ============================================================
+-- HITBOX EXPANDER
+local hitboxSaved = setmetatable({}, { __mode = "k" })
+task.spawn(function()
+    while task.wait(0.15) do
+        if Config.HitboxExpander then
+            pcall(function()
+                local myChar = LocalPlayer.Character
+                local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                local myPos = myHrp and myHrp.Position or nil
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local char = player.Character
+                        if char then
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            local dist = (myPos and hrp) and (hrp.Position - myPos).Magnitude or 0
+                            if dist <= Config.HitboxMaxDist then
+                                for _, part in ipairs(char:GetDescendants()) do
+                                    if part:IsA("BasePart") and (part.Name == "Head" or part.Name:find("Torso")) then
+                                        if hitboxSaved[part] == nil then
+                                            hitboxSaved[part] = part.Size
+                                        end
+                                        pcall(function()
+                                            part.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
+                                            part.CanCollide = false
+                                            part.Transparency = 0.5
+                                        end)
+                                    end
+                                end
+                            else
+                                for _, part in ipairs(char:GetDescendants()) do
+                                    if part:IsA("BasePart") and hitboxSaved[part] then
+                                        pcall(function()
+                                            part.Size = hitboxSaved[part]
+                                            part.CanCollide = true
+                                            part.Transparency = 0
+                                        end)
+                                        hitboxSaved[part] = nil
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            pcall(function()
+                for part, size in pairs(hitboxSaved) do
+                    if part and part.Parent then
+                        part.Size = size
+                        part.CanCollide = true
+                        part.Transparency = 0
+                    end
+                end
+                hitboxSaved = setmetatable({}, { __mode = "k" })
+            end)
+        end
+    end
+end)
+
+-- COIN ESP
+local coinESPObjs = {}
+local function updateCoinESP()
+    if not Config.CoinESP then
+        for _, o in pairs(coinESPObjs) do pcall(function() o:Destroy() end) end
+        coinESPObjs = {}
+        return
+    end
+    for _, coin in ipairs(findCoins()) do
+        if not coinESPObjs[coin.obj] then
+            local hl = Instance.new("Highlight")
+            hl.Adornee = coin.obj
+            hl.FillColor = Color3.fromRGB(255, 215, 0)
+            hl.OutlineColor = Color3.fromRGB(255, 215, 0)
+            hl.FillTransparency = 0.4
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = coin.obj
+            coinESPObjs[coin.obj] = hl
+        end
+    end
+    for obj, hl in pairs(coinESPObjs) do
+        if not obj.Parent then
+            pcall(function() hl:Destroy() end)
+            coinESPObjs[obj] = nil
+        end
+    end
+end
+task.spawn(function()
+    while task.wait(1) do pcall(updateCoinESP) end
+end)
+
+-- RADAR HUD
+local radarGui = Instance.new("ScreenGui")
+radarGui.Name = "MM2_Radar"
+radarGui.ResetOnSpawn = false
+radarGui.IgnoreGuiInset = true
+pcall(function() radarGui.Parent = game.CoreGui end)
+
+local radarFrame = Instance.new("Frame")
+radarFrame.Size = UDim2.fromOffset(140, 140)
+radarFrame.Position = UDim2.new(0, 20, 0.5, -70)
+radarFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+radarFrame.BackgroundTransparency = 0.6
+radarFrame.BorderSizePixel = 0
+radarFrame.Visible = false
+radarFrame.Parent = radarGui
+Instance.new("UICorner", radarFrame).CornerRadius = UDim.new(1, 0)
+
+local radarPlayer = Instance.new("Frame")
+radarPlayer.Size = UDim2.fromOffset(6, 6)
+radarPlayer.Position = UDim2.new(0.5, -3, 0.5, -3)
+radarPlayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+radarPlayer.BorderSizePixel = 0
+radarPlayer.Parent = radarFrame
+Instance.new("UICorner", radarPlayer).CornerRadius = UDim.new(1, 0)
+
+local radarDots = {}
+local RADAR_RANGE = 200
+
+task.spawn(function()
+    while task.wait(0.15) do
+        radarFrame.Visible = Config.RadarHUD
+        if Config.RadarHUD then
+            local myChar = LocalPlayer.Character
+            local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if myHrp then
+                local myPos = myHrp.Position
+                local myLook = Camera.CFrame.LookVector
+                local angle = math.atan2(myLook.X, myLook.Z)
+                local used = {}
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer then
+                        local char = player.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            local rel = hrp.Position - myPos
+                            if rel.Magnitude <= RADAR_RANGE then
+                                local rotX = rel.X * math.cos(-angle) - rel.Z * math.sin(-angle)
+                                local rotZ = rel.X * math.sin(-angle) + rel.Z * math.cos(-angle)
+                                local px = (rotX / RADAR_RANGE) * 60 + 70
+                                local py = -(rotZ / RADAR_RANGE) * 60 + 70
+                                local dot = radarDots[player]
+                                if not dot then
+                                    dot = Instance.new("Frame")
+                                    dot.Size = UDim2.fromOffset(8, 8)
+                                    dot.BorderSizePixel = 0
+                                    dot.Parent = radarFrame
+                                    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+                                    radarDots[player] = dot
+                                end
+                                dot.Position = UDim2.fromOffset(px - 4, py - 4)
+                                local role = getRole(player)
+                                dot.BackgroundColor3 = getRoleColor(role)
+                                used[player] = true
+                            end
+                        end
+                    end
+                end
+                for p, dot in pairs(radarDots) do
+                    if not used[p] then
+                        pcall(function() dot:Destroy() end)
+                        radarDots[p] = nil
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ANTI-AFK
+task.spawn(function()
+    while task.wait(60) do
+        if Config.AntiAFK then
+            pcall(function()
+                local VirtualUser = game:GetService("VirtualUser")
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton2(Vector2.new(0, 0))
+            end)
+        end
+    end
+end)
+
+-- MURDERER ALERT
+local lastMurdererDist = 999
+task.spawn(function()
+    while task.wait(0.5) do
+        if Config.MurdererAlert then
+            pcall(function()
+                local myChar = LocalPlayer.Character
+                local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if myHrp then
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and getRole(player) == "Murderer" then
+                            local tChar = player.Character
+                            local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                            if tHrp then
+                                local dist = (tHrp.Position - myHrp.Position).Magnitude
+                                if dist <= Config.MurdererAlertRange and lastMurdererDist > Config.MurdererAlertRange then
+                                    Rayfield:Notify({
+                                        Title = "🚨 ALERTA",
+                                        Content = "Murderer perto! Distancia: " .. math.floor(dist) .. " studs",
+                                        Duration = 4,
+                                    })
+                                end
+                                lastMurdererDist = dist
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- LOCK CAMERA NO MURDERER
+task.spawn(function()
+    while task.wait(0.05) do
+        if Config.LockCameraMurderer then
+            pcall(function()
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and getRole(player) == "Murderer" then
+                        local tChar = player.Character
+                        local head = tChar and tChar:FindFirstChild("Head")
+                        if head then
+                            local desired = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+                            Camera.CFrame = Camera.CFrame:Lerp(desired, 0.3)
+                        end
+                        break
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ANTI-EXPLOSION
+task.spawn(function()
+    while task.wait(0.2) do
+        if Config.AntiExplosion then
+            pcall(function()
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("Explosion") then
+                        obj.BlastRadius = 0
+                        obj.BlastPressure = 0
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- PLAYER LIST
+local function showPlayerList()
+    local msg = "Jogadores:\n"
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local role = getRole(player)
+            msg = msg .. "• " .. player.Name .. " — " .. role .. "\n"
+        end
+    end
+    Rayfield:Notify({ Title = "Player List", Content = msg, Duration = 10 })
+end
+
+-- SERVER HOP
+local function serverHop()
+    Rayfield:Notify({ Title = "Server Hop", Content = "Procurando servidor...", Duration = 3 })
+    task.spawn(function()
+        pcall(function()
+            local HttpService = game:GetService("HttpService")
+            local TS = game:GetService("TeleportService")
+            local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+            local response
+            if syn and syn.request then
+                response = syn.request({ Url = url, Method = "GET" }).Body
+            elseif request then
+                response = request({ Url = url, Method = "GET" }).Body
+            else
+                response = game:HttpGet(url)
+            end
+            local data = HttpService:JSONDecode(response)
+            if data and data.data then
+                for _, server in ipairs(data.data) do
+                    if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                        TS:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                        return
+                    end
+                end
+            end
+            Rayfield:Notify({ Title = "Server Hop", Content = "Nenhum servidor encontrado", Duration = 3 })
+        end)
+    end)
+end
+
+-- MURDER: KILL ALL
 local function killAll()
     local char = LocalPlayer.Character
     if not char then return end
@@ -964,7 +1273,7 @@ local function killAll()
     end)
 end
 
--- TP TO ROLE
+-- TELEPORT TO ROLE
 local function teleportToRole(roleName)
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and getRole(player) == roleName then
@@ -1301,7 +1610,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  ANTI-FLING COM COLLISION GROUP (OTIMIZADO)
+--  ANTI-FLING COM COLLISION GROUP
 -- ============================================================
 pcall(function()
     PhysicsService:RegisterCollisionGroup("MM2_Self")
@@ -1676,7 +1985,9 @@ local Window = Rayfield:CreateWindow({
     Theme = "DarkBlue",
 })
 
--- Visual
+-- ============================================================
+--  ABA VISUAL
+-- ============================================================
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
     Name = "ESP Players (atraves das paredes)",
@@ -1700,7 +2011,46 @@ VisualTab:CreateToggle({
     Callback = function(v) Config.ESP_Gun = v end,
 })
 
--- Aimbot
+-- ============================================================
+--  ABA VISUAL+
+-- ============================================================
+local VisualPlusTab = Window:CreateTab("Visual+", 4483362458)
+VisualPlusTab:CreateToggle({
+    Name = "Coin ESP (moedas no mapa)",
+    CurrentValue = false,
+    Callback = function(v) Config.CoinESP = v end,
+})
+VisualPlusTab:CreateToggle({
+    Name = "Radar HUD (minimapa)",
+    CurrentValue = false,
+    Callback = function(v) Config.RadarHUD = v end,
+})
+VisualPlusTab:CreateToggle({
+    Name = "Hitbox Expander (aumenta hitbox)",
+    CurrentValue = false,
+    Callback = function(v) Config.HitboxExpander = v end,
+})
+VisualPlusTab:CreateSlider({
+    Name = "Tamanho da Hitbox",
+    Range = {2, 20}, Increment = 1, Suffix = " studs",
+    CurrentValue = 5,
+    Callback = function(v) Config.HitboxSize = v end,
+})
+VisualPlusTab:CreateSlider({
+    Name = "Hitbox Range",
+    Range = {50, 500}, Increment = 10, Suffix = " studs",
+    CurrentValue = 200,
+    Callback = function(v) Config.HitboxMaxDist = v end,
+})
+VisualPlusTab:CreateToggle({
+    Name = "Lock Camera no Murderer",
+    CurrentValue = false,
+    Callback = function(v) Config.LockCameraMurderer = v end,
+})
+
+-- ============================================================
+--  ABA AIMBOT
+-- ============================================================
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 AimbotTab:CreateToggle({ Name = "Aimbot por Role", CurrentValue = false, Callback = function(v) Config.Aimbot = v end })
 AimbotTab:CreateToggle({ Name = "Aimbot Instantaneo (snap)", CurrentValue = false, Callback = function(v) Config.Aimbot_Instant = v end })
@@ -1716,23 +2066,56 @@ AimbotTab:CreateToggle({ Name = "Trigger Wall Check", CurrentValue = false, Call
 AimbotTab:CreateSlider({ Name = "Trigger Bot FOV", Range = {10, 300}, Increment = 5, Suffix = " px", CurrentValue = 40, Callback = function(v) Config.TriggerBot_FOV = v end })
 AimbotTab:CreateSlider({ Name = "Trigger Delay", Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.08, Callback = function(v) Config.TriggerBot_Delay = v end })
 
--- Auto Kill
-local AutoKillTab = Window:CreateTab("Auto Kill", 4483362458)
-AutoKillTab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(v) Config.AutoKill = v end })
-AutoKillTab:CreateSlider({ Name = "Alcance Faca", Range = {5, 50}, Increment = 1, Suffix = " studs", CurrentValue = 15, Callback = function(v) Config.AutoKill_Range = v end })
-AutoKillTab:CreateSlider({ Name = "Alcance Tiro", Range = {50, 1000}, Increment = 10, Suffix = " studs", CurrentValue = 500, Callback = function(v) Config.AutoKill_GunRange = v end })
-AutoKillTab:CreateSlider({ Name = "Delay", Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s", CurrentValue = 0.35, Callback = function(v) Config.AutoKill_Delay = v end })
-AutoKillTab:CreateToggle({ Name = "Wall Check", CurrentValue = true, Callback = function(v) Config.AutoKill_WallCheck = v end })
-AutoKillTab:CreateToggle({ Name = "Auto Equip", CurrentValue = true, Callback = function(v) Config.AutoKill_AutoEquip = v end })
-AutoKillTab:CreateButton({
-    Name = "⚔️ Kill All (Murderer)",
+-- ============================================================
+--  ABA MURDER (só pra quando você for o assassino)
+-- ============================================================
+local MurderTab = Window:CreateTab("Murder", 4483362458)
+MurderTab:CreateButton({
+    Name = "⚔️ KILL ALL (matar todos)",
     Callback = function() killAll() end,
 })
+MurderTab:CreateToggle({
+    Name = "Auto Kill (faca automatica)",
+    CurrentValue = false,
+    Callback = function(v) Config.AutoKill = v end,
+})
+MurderTab:CreateToggle({
+    Name = "Auto Equip Faca",
+    CurrentValue = true,
+    Callback = function(v) Config.AutoKill_AutoEquip = v end,
+})
+MurderTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = true,
+    Callback = function(v) Config.AutoKill_WallCheck = v end,
+})
+MurderTab:CreateSlider({
+    Name = "Alcance da Faca",
+    Range = {5, 50}, Increment = 1, Suffix = " studs",
+    CurrentValue = 15,
+    Callback = function(v) Config.AutoKill_Range = v end,
+})
+MurderTab:CreateSlider({
+    Name = "Delay entre acoes",
+    Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
+    CurrentValue = 0.35,
+    Callback = function(v) Config.AutoKill_Delay = v end,
+})
+MurderTab:CreateButton({
+    Name = "🎯 Teleport to Innocent",
+    Callback = function() teleportToRole("Innocent") end,
+})
+MurderTab:CreateButton({
+    Name = "🎯 Teleport to Sheriff",
+    Callback = function() teleportToRole("Sheriff") end,
+})
 
--- Gun
-local GunTab = Window:CreateTab("Gun", 4483362458)
-GunTab:CreateButton({
-    Name = "Grab Gun (manual)",
+-- ============================================================
+--  ABA SHERIFF (só pra quando você for o xerife)
+-- ============================================================
+local SheriffTab = Window:CreateTab("Sheriff", 4483362458)
+SheriffTab:CreateButton({
+    Name = "🔫 Grab Gun (manual)",
     Callback = function()
         local ok = grabGun()
         if ok then
@@ -1742,10 +2125,51 @@ GunTab:CreateButton({
         end
     end,
 })
-GunTab:CreateToggle({ Name = "Auto Grab Gun", CurrentValue = false, Callback = function(v) Config.AutoGrabGun = v end })
-GunTab:CreateToggle({ Name = "Retorno instantaneo", CurrentValue = true, Callback = function(v) Config.AutoGrabGun_ReturnInstant = v end })
+SheriffTab:CreateToggle({
+    Name = "Auto Grab Gun",
+    CurrentValue = false,
+    Callback = function(v) Config.AutoGrabGun = v end,
+})
+SheriffTab:CreateToggle({
+    Name = "Retorno instantaneo",
+    CurrentValue = true,
+    Callback = function(v) Config.AutoGrabGun_ReturnInstant = v end,
+})
+SheriffTab:CreateToggle({
+    Name = "Auto Kill (tiro automatico)",
+    CurrentValue = false,
+    Callback = function(v) Config.AutoKill = v end,
+})
+SheriffTab:CreateToggle({
+    Name = "Auto Equip Arma",
+    CurrentValue = true,
+    Callback = function(v) Config.AutoKill_AutoEquip = v end,
+})
+SheriffTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = true,
+    Callback = function(v) Config.AutoKill_WallCheck = v end,
+})
+SheriffTab:CreateSlider({
+    Name = "Alcance do Tiro",
+    Range = {50, 1000}, Increment = 10, Suffix = " studs",
+    CurrentValue = 500,
+    Callback = function(v) Config.AutoKill_GunRange = v end,
+})
+SheriffTab:CreateSlider({
+    Name = "Delay entre tiros",
+    Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
+    CurrentValue = 0.35,
+    Callback = function(v) Config.AutoKill_Delay = v end,
+})
+SheriffTab:CreateButton({
+    Name = "🎯 Teleport to Murderer",
+    Callback = function() teleportToRole("Murderer") end,
+})
 
--- Auto Farm
+-- ============================================================
+--  ABA AUTO FARM
+-- ============================================================
 local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
 FarmTab:CreateToggle({
     Name = "Auto Farm Coins",
@@ -1782,7 +2206,9 @@ FarmTab:CreateButton({
     end,
 })
 
--- Player
+-- ============================================================
+--  ABA PLAYER
+-- ============================================================
 local MoveTab = Window:CreateTab("Player", 4483362458)
 MoveTab:CreateSlider({
     Name = "Speed", Range = {16, 200}, Increment = 1, Suffix = " studs", CurrentValue = 16,
@@ -1841,7 +2267,9 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({ Name = "Invisible Y (altura)", Range = {1000, 50000}, Increment = 100, CurrentValue = 5000, Callback = function(v) Config.InvisibleY = v end })
 
--- Performance
+-- ============================================================
+--  ABA PERFORMANCE
+-- ============================================================
 local PerfTab = Window:CreateTab("Performance", 4483362458)
 PerfTab:CreateToggle({ Name = "Remover Neblina (No Fog)", CurrentValue = false, Callback = function(v) Config.Perf_NoFog = v end })
 PerfTab:CreateToggle({ Name = "Remover Sombras (No Shadows)", CurrentValue = false, Callback = function(v) Config.Perf_NoShadow = v end })
@@ -1876,7 +2304,9 @@ PerfTab:CreateButton({
     end,
 })
 
--- Extras
+-- ============================================================
+--  ABA EXTRAS
+-- ============================================================
 local ExtrasTab = Window:CreateTab("Extras", 4483362458)
 ExtrasTab:CreateToggle({
     Name = "Anti-Kick (bloqueia SetCore)",
@@ -1898,8 +2328,39 @@ ExtrasTab:CreateToggle({
     CurrentValue = false,
     Callback = function(v) Config.AutoDodge = v end,
 })
+ExtrasTab:CreateToggle({
+    Name = "Anti-AFK (evita kick por inatividade)",
+    CurrentValue = false,
+    Callback = function(v) Config.AntiAFK = v end,
+})
+ExtrasTab:CreateToggle({
+    Name = "Anti-Explosion (bloqueia explosoes)",
+    CurrentValue = false,
+    Callback = function(v) Config.AntiExplosion = v end,
+})
+ExtrasTab:CreateToggle({
+    Name = "Murderer Alert (avisa quando perto)",
+    CurrentValue = false,
+    Callback = function(v) Config.MurdererAlert = v end,
+})
+ExtrasTab:CreateSlider({
+    Name = "Alerta range",
+    Range = {30, 200}, Increment = 10, Suffix = " studs",
+    CurrentValue = 80,
+    Callback = function(v) Config.MurdererAlertRange = v end,
+})
+ExtrasTab:CreateButton({
+    Name = "📋 Ver lista de jogadores + roles",
+    Callback = function() showPlayerList() end,
+})
+ExtrasTab:CreateButton({
+    Name = "🌐 Server Hop (trocar de servidor)",
+    Callback = function() serverHop() end,
+})
 
--- Teleporte
+-- ============================================================
+--  ABA TELEPORTE
+-- ============================================================
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
     Name = "Teleport to Obby",
@@ -1920,16 +2381,10 @@ TpTab:CreateButton({
         Rayfield:Notify({Title = "Teleporte", Content = "Indo para o centro...", Duration = 3})
     end,
 })
-TpTab:CreateButton({
-    Name = "🔪 Teleport to Murderer",
-    Callback = function() teleportToRole("Murderer") end,
-})
-TpTab:CreateButton({
-    Name = "🔫 Teleport to Sheriff",
-    Callback = function() teleportToRole("Sheriff") end,
-})
 
--- Protecao
+-- ============================================================
+--  ABA PROTECAO
+-- ============================================================
 local ProtTab = Window:CreateTab("Protecao", 4483362458)
 ProtTab:CreateToggle({
     Name = "Anti-Fling (sem colisao com players)",
@@ -2001,11 +2456,21 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             Rayfield:Notify({ Title = "Invisible", Content = Config.Invisible and "Ligado" or "Desligado", Duration = 2 })
         end)
     end
+
+    if key == Enum.KeyCode.H then
+        Config.HitboxExpander = not Config.HitboxExpander
+        Rayfield:Notify({Title = "Hitbox", Content = Config.HitboxExpander and "Ligado" or "Desligado", Duration = 2})
+    end
+
+    if key == Enum.KeyCode.C then
+        Config.CoinESP = not Config.CoinESP
+        Rayfield:Notify({Title = "Coin ESP", Content = Config.CoinESP and "Ligado" or "Desligado", Duration = 2})
+    end
 end)
 
 Rayfield:Notify({
     Title = "MM2 Check Hub v3",
-    Content = "Teclas: F=Fly N=Noclip G=GrabGun J=Jump V=AntiVoid I=Invisible",
+    Content = "Teclas: F=Fly N=Noclip G=GrabGun J=Jump V=AntiVoid I=Invisible H=Hitbox C=CoinESP",
     Duration = 7,
 })
 
