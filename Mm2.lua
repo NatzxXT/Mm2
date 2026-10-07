@@ -1,15 +1,14 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - FINAL
---  Detecção MM2 • Performance • Tudo incluso
+--  MM2 CHECK HUB v3 - FINAL COMPLETO
+--  Detecção MM2 • ESP • Aimbot • Trigger • AutoKill • Farm
+--  GrabGun • Invisible • Anti-Fling c/ Colisão • Performance
 -- ============================================================
 
 -- ============================================================
 --  VERIFICAÇÃO DE JOGO (só funciona no MM2)
 -- ============================================================
 local MM2_PLACE_IDS = {
-    142823291,      -- Murder Mystery 2 (principal)
-    1990777535,     -- MM2 (alt server)
-    321010323,      -- MM2 (versão antiga)
+    142823291, 1990777535, 321010323,
 }
 
 local function isMM2()
@@ -17,17 +16,13 @@ local function isMM2()
         if game.PlaceId == id then return true end
     end
     local gname = string.lower(game.Name or "")
-    if gname == "murder mystery 2" or gname == "mm2" then
-        return true
-    end
+    if gname == "murder mystery 2" or gname == "mm2" then return true end
     local ok, info = pcall(function()
         return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
     end)
     if ok and info and info.Name then
         local n = string.lower(info.Name)
-        if n == "murder mystery 2" or n == "mm2" then
-            return true
-        end
+        if n == "murder mystery 2" or n == "mm2" then return true end
     end
     return false
 end
@@ -40,7 +35,6 @@ if not isMM2() then
     avisoGui.DisplayOrder = 9999
     pcall(function() avisoGui.Parent = game:GetService("CoreGui") end)
 
-    -- Nome base (sem HTTP, não trava)
     local gameDisplayName = game.Name or "?"
 
     local frame = Instance.new("Frame")
@@ -51,10 +45,7 @@ if not isMM2() then
     frame.BackgroundTransparency = 0.05
     frame.BorderSizePixel = 0
     frame.Parent = avisoGui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = frame
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.fromRGB(255, 70, 70)
@@ -83,33 +74,25 @@ if not isMM2() then
     msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
 
-    -- Tenta pegar nome real EM BACKGROUND (não trava o aviso)
+    -- Atualiza nome real em background (não trava)
     task.spawn(function()
         pcall(function()
             local HttpService = game:GetService("HttpService")
             local url = "https://games.roblox.com/v1/games?universeIds=" .. tostring(game.GameId)
             local response = nil
-
             if syn and syn.request then
-                local ok, res = pcall(function()
-                    return syn.request({ Url = url, Method = "GET" })
-                end)
+                local ok, res = pcall(function() return syn.request({ Url = url, Method = "GET" }) end)
                 if ok and res and res.Body then response = res.Body end
             elseif request then
-                local ok, res = pcall(function()
-                    return request({ Url = url, Method = "GET" })
-                end)
+                local ok, res = pcall(function() return request({ Url = url, Method = "GET" }) end)
                 if ok and res and res.Body then response = res.Body end
             elseif http_request then
-                local ok, res = pcall(function()
-                    return http_request({ Url = url, Method = "GET" })
-                end)
+                local ok, res = pcall(function() return http_request({ Url = url, Method = "GET" }) end)
                 if ok and res and res.Body then response = res.Body end
             else
                 local ok, res = pcall(function() return game:HttpGet(url, true) end)
                 if ok and res then response = res end
             end
-
             if response then
                 local data = HttpService:JSONDecode(response)
                 if data and data.data and data.data[1] and data.data[1].name then
@@ -157,6 +140,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
+local PhysicsService = game:GetService("PhysicsService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -269,6 +253,7 @@ fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 fovCircle.BackgroundTransparency = 1
 fovCircle.Parent = fovGui
+fovCircle:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", fovCircle)
 
 local fovStroke = Instance.new("UIStroke")
 fovStroke.Thickness = 1.5
@@ -307,9 +292,7 @@ end
 local function findTool(char, keyword)
     if not char then return nil end
     for _, t in ipairs(char:GetChildren()) do
-        if t:IsA("Tool") and t.Name:lower():find(keyword) then
-            return t
-        end
+        if t:IsA("Tool") and t.Name:lower():find(keyword) then return t end
     end
     return nil
 end
@@ -368,24 +351,13 @@ local function findDroppedGunPart()
             end
         end
     end
-    for _, obj in ipairs(workspace:GetChildren()) do
+    for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") or obj:IsA("Model") then
             local n = obj.Name:lower()
-            if n == "gun" or n:find("gun") or n == "revolver" then
+            if n == "gun" or n == "revolver" or n:find("droppedgun") or n:find("dropped_gun") then
                 if not isInAnyCharacter(obj) then return obj end
             end
         end
-    end
-    return nil
-end
-
-local function getGunHandle(gun)
-    if gun:IsA("BasePart") then return gun end
-    if gun:IsA("Tool") then
-        return gun:FindFirstChild("Handle") or gun:FindFirstChildWhichIsA("BasePart")
-    end
-    if gun:IsA("Model") then
-        return gun.PrimaryPart or gun:FindFirstChildWhichIsA("BasePart")
     end
     return nil
 end
@@ -528,14 +500,20 @@ local function updateGunESP()
     if gunESPObject == gun and gunESP and gunESP.Parent then return end
     if gunESP then gunESP:Destroy() gunESP = nil end
     gunESPObject = gun
+
+    local adornee = gun
+    if gun:IsA("Tool") then
+        adornee = gun:FindFirstChild("Handle") or gun:FindFirstChildWhichIsA("BasePart") or gun
+    end
+
     gunESP = Instance.new("Highlight")
-    gunESP.Adornee = gun
+    gunESP.Adornee = adornee
     gunESP.FillColor = Color3.fromRGB(255, 255, 0)
     gunESP.OutlineColor = Color3.fromRGB(255, 255, 0)
     gunESP.FillTransparency = 0.3
     gunESP.OutlineTransparency = 0
     gunESP.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    gunESP.Parent = gun
+    gunESP.Parent = adornee
 end
 
 -- ============================================================
@@ -546,9 +524,7 @@ local function isTargetValid(targetPlayer, useTeamCheck)
     local myRole = getRole(LocalPlayer)
     local tRole = getRole(targetPlayer)
     if useTeamCheck and myRole == tRole then return false end
-    if myRole == "Murderer" then
-        return tRole ~= "Murderer"
-    end
+    if myRole == "Murderer" then return tRole ~= "Murderer" end
     return tRole == "Murderer"
 end
 
@@ -770,7 +746,7 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- ============================================================
---  LOOPS SECUNDÁRIOS
+--  LOOPS
 -- ============================================================
 task.spawn(function()
     while task.wait(0.3) do
@@ -825,9 +801,349 @@ task.spawn(function()
 end)
 
 -- ============================================================
+--  ANTI-FLING COM COLLISION GROUP
+-- ============================================================
+pcall(function()
+    PhysicsService:RegisterCollisionGroup("MM2_Self")
+    PhysicsService:RegisterCollisionGroup("MM2_Others")
+end)
+pcall(function()
+    PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false)
+end)
+
+local function setSelfGroup()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Self" then
+            pcall(function() part.CollisionGroup = "MM2_Self" end)
+        end
+    end
+end
+
+local function setOthersGroup()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Others" then
+                    pcall(function() part.CollisionGroup = "MM2_Others" end)
+                end
+            end
+        end
+    end
+end
+
+local function restoreAllGroups()
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                pcall(function() part.CollisionGroup = "Default" end)
+            end
+        end
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    pcall(function() part.CollisionGroup = "Default" end)
+                end
+            end
+        end
+    end
+end
+
+local function enableAntiFling()
+    if not Config.AntiFling then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
+    end
+    pcall(setSelfGroup)
+    pcall(setOthersGroup)
+end
+
+task.spawn(function()
+    while task.wait(0.3) do
+        if Config.AntiFling then
+            pcall(setSelfGroup)
+            pcall(setOthersGroup)
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not Config.AntiFling then return end
+    pcall(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum or hum.Health <= 0 then return end
+
+        if not hrp.CustomPhysicalProperties or hrp.CustomPhysicalProperties.Density ~= 0.7 then
+            hrp.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
+        end
+
+        local v = hrp.AssemblyLinearVelocity
+        local horizontal = Vector3.new(v.X, 0, v.Z).Magnitude
+        local angular = hrp.AssemblyAngularVelocity.Magnitude
+
+        if horizontal > 160 or v.Y > 80 or angular > 40 then
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            hrp.Velocity = Vector3.zero
+            hrp.RotVelocity = Vector3.zero
+            local state = hum:GetState()
+            if state == Enum.HumanoidStateType.FallingDown
+                or state == Enum.HumanoidStateType.Ragdoll
+                or state == Enum.HumanoidStateType.Physics then
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+            hum.PlatformStand = false
+        end
+    end)
+end)
+
+-- ============================================================
+--  INVISIBLE MODE (Seat Bug)
+-- ============================================================
+local SeatInvisible = {}
+local invisMySeat = nil
+local invisActive = false
+
+local function invisCleanupSeat()
+    local e = workspace:FindFirstChild("invischair")
+    if e then pcall(function() e:Destroy() end) end
+    invisMySeat = nil
+end
+
+local function invisActivate()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    invisCleanupSeat()
+    local sp = hrp.CFrame
+    local tp = Vector3.new(Config.InvisibleX, Config.InvisibleY, Config.InvisibleZ)
+    char:MoveTo(tp)
+    task.wait(0.15)
+    local st = Instance.new("Seat")
+    st.Name = "invischair"
+    st.Anchored = false
+    st.CanCollide = false
+    st.Transparency = 1
+    st.Position = tp
+    st.Parent = workspace
+    invisMySeat = st
+    local wl = Instance.new("Weld")
+    wl.Part0 = st
+    wl.Part1 = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+    wl.Parent = st
+    task.wait()
+    st.CFrame = sp
+    for _, d in ipairs(char:GetDescendants()) do
+        if d:IsA("BasePart") or d:IsA("Decal") then d.Transparency = 0.5 end
+    end
+end
+
+local function invisDeactivate()
+    invisCleanupSeat()
+    if LocalPlayer.Character then
+        for _, d in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if d:IsA("BasePart") or d:IsA("Decal") then d.Transparency = 0 end
+        end
+    end
+end
+
+SeatInvisible.toggle = function()
+    invisActive = not invisActive
+    Config.Invisible = invisActive
+    if invisActive then invisActivate() else invisDeactivate() end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if invisActive and (not invisMySeat or not invisMySeat.Parent) then
+            invisActive = false
+            Config.Invisible = false
+            invisDeactivate()
+        end
+    end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = Config.Speed
+        hum.UseJumpPower = true
+        hum.JumpPower = Config.JumpPower
+    end
+    invisActive = false
+    Config.Invisible = false
+    invisCleanupSeat()
+    if Config.AntiFling then
+        task.wait(0.5)
+        enableAntiFling()
+    end
+end)
+
+-- ============================================================
+--  TELEPORTES
+-- ============================================================
+local function teleportTo(position)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+        hrp.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+local function findObby()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("obby") then return obj.Position end
+    end
+    return nil
+end
+
+local function findMapCenter()
+    local sum, count = Vector3.new(), 0
+    for _, p in ipairs(Players:GetPlayers()) do
+        local c = p.Character
+        if c and c:FindFirstChild("HumanoidRootPart") then
+            sum = sum + c.HumanoidRootPart.Position
+            count = count + 1
+        end
+    end
+    if count > 0 then return sum / count end
+    return Vector3.new(0, 10, 0)
+end
+
+-- ============================================================
+--  GRAB GUN
+-- ============================================================
+local grabbing = false
+local function grabGun()
+    if grabbing then return false end
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return false end
+
+    for _, t in ipairs(char:GetChildren()) do
+        if t:IsA("Tool") and t.Name:lower():find("gun") then return false end
+    end
+
+    local gun = findDroppedGunPart()
+    if not gun then return false end
+
+    local targetPos
+    if gun:IsA("Tool") then
+        local h = gun:FindFirstChild("Handle")
+        targetPos = h and h.Position or nil
+    elseif gun:IsA("BasePart") then
+        targetPos = gun.Position
+    elseif gun:IsA("Model") then
+        targetPos = gun:GetPivot().Position
+    end
+    if not targetPos then return false end
+
+    grabbing = true
+    local originalCFrame = hrp.CFrame
+    local originalVelocity = hrp.Velocity
+
+    hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 1, 0))
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    task.wait(0.25)
+    hum:MoveTo(targetPos)
+
+    local prompt = gun:FindFirstChildOfClass("ProximityPrompt")
+    if not prompt then
+        for _, d in ipairs(gun:GetDescendants()) do
+            if d:IsA("ProximityPrompt") then prompt = d break end
+        end
+    end
+    if prompt then pcall(function() fireproximityprompt(prompt) end) end
+
+    local cd = gun:FindFirstChildOfClass("ClickDetector")
+    if not cd then
+        for _, d in ipairs(gun:GetDescendants()) do
+            if d:IsA("ClickDetector") then cd = d break end
+        end
+    end
+    if cd then pcall(function() fireclickdetector(cd) end) end
+
+    local partsToTouch = {}
+    if gun:IsA("BasePart") then
+        table.insert(partsToTouch, gun)
+    else
+        for _, d in ipairs(gun:GetDescendants()) do
+            if d:IsA("BasePart") then table.insert(partsToTouch, d) end
+        end
+    end
+
+    for _, part in ipairs(partsToTouch) do
+        pcall(function()
+            firetouchinterest(hrp, part, 0)
+            firetouchinterest(hrp, part, 1)
+        end)
+    end
+    task.wait(0.5)
+
+    local hasGun = false
+    for _, t in ipairs(char:GetChildren()) do
+        if t:IsA("Tool") and t.Name:lower():find("gun") then hasGun = true break end
+    end
+    if not hasGun then
+        for _, part in ipairs(partsToTouch) do
+            pcall(function()
+                firetouchinterest(hrp, part, 0)
+                firetouchinterest(hrp, part, 1)
+            end)
+        end
+        task.wait(0.3)
+    end
+
+    if char.Parent and hrp.Parent then
+        hrp.CFrame = originalCFrame
+        hrp.Velocity = originalVelocity
+    end
+    grabbing = false
+    return true
+end
+
+task.spawn(function()
+    while task.wait(Config.AutoGrabGun_Delay) do
+        pcall(function()
+            if Config.AutoGrabGun and not grabbing then
+                local char = LocalPlayer.Character
+                if char and getRole(LocalPlayer) ~= "Murderer" then
+                    local hasG = false
+                    for _, t in ipairs(char:GetChildren()) do
+                        if t:IsA("Tool") and t.Name:lower():find("gun") then
+                            hasG = true break
+                        end
+                    end
+                    if not hasG and findDroppedGunPart() then pcall(grabGun) end
+                end
+            end
+        end)
+    end
+end)
+
+-- ============================================================
 --  PERFORMANCE
 -- ============================================================
 local perfSaved = {}
+local savedMaterials = setmetatable({}, { __mode = "k" })
+local savedShadows = setmetatable({}, { __mode = "k" })
+local perfState = { nofog = false, noshadow = false, smooth = false, bright = false }
 
 local function saveLightingOnce(key, props)
     if perfSaved[key] then return end
@@ -845,46 +1161,83 @@ local function restoreLighting(key)
     perfSaved[key] = nil
 end
 
+local function applySmoothPlastic()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if savedMaterials[obj] == nil then savedMaterials[obj] = obj.Material end
+            pcall(function() obj.Material = Enum.Material.SmoothPlastic end)
+        end
+    end
+end
+
+local function restoreMaterials()
+    for obj, mat in pairs(savedMaterials) do
+        if obj and obj.Parent then
+            pcall(function() obj.Material = mat end)
+        end
+    end
+end
+
+local function applyNoShadow()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if savedShadows[obj] == nil then savedShadows[obj] = obj.CastShadow end
+            pcall(function() obj.CastShadow = false end)
+        end
+    end
+end
+
+local function restoreShadows()
+    for obj, sh in pairs(savedShadows) do
+        if obj and obj.Parent then
+            pcall(function() obj.CastShadow = sh end)
+        end
+    end
+end
+
 task.spawn(function()
-    while task.wait(0.5) do
+    while task.wait(0.3) do
         pcall(function()
-            if Config.Perf_FullBright then
+            if Config.Perf_FullBright and not perfState.bright then
                 saveLightingOnce("bright", { "Brightness", "Ambient", "OutdoorAmbient", "ClockTime" })
                 Lighting.Brightness = 3
                 Lighting.ClockTime = 14
                 Lighting.Ambient = Color3.fromRGB(200, 200, 200)
                 Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
-            else
+                perfState.bright = true
+            elseif not Config.Perf_FullBright and perfState.bright then
                 restoreLighting("bright")
+                perfState.bright = false
             end
 
-            if Config.Perf_NoFog then
+            if Config.Perf_NoFog and not perfState.nofog then
                 saveLightingOnce("fog", { "FogEnd", "FogStart", "FogColor" })
                 Lighting.FogEnd = 100000
                 Lighting.FogStart = 100000
-            else
+                perfState.nofog = true
+            elseif not Config.Perf_NoFog and perfState.nofog then
                 restoreLighting("fog")
+                perfState.nofog = false
             end
 
-            if Config.Perf_NoShadow then
+            if Config.Perf_NoShadow and not perfState.noshadow then
                 saveLightingOnce("shadow", { "GlobalShadows" })
                 Lighting.GlobalShadows = false
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") and obj.CastShadow then
-                        pcall(function() obj.CastShadow = false end)
-                    end
-                end
-            else
+                perfState.noshadow = true
+            elseif not Config.Perf_NoShadow and perfState.noshadow then
                 restoreLighting("shadow")
+                restoreShadows()
+                perfState.noshadow = false
             end
+            if Config.Perf_NoShadow then applyNoShadow() end
 
-            if Config.Perf_SmoothTexture then
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") then
-                        pcall(function() obj.Material = Enum.Material.SmoothPlastic end)
-                    end
-                end
+            if Config.Perf_SmoothTexture and not perfState.smooth then
+                perfState.smooth = true
+            elseif not Config.Perf_SmoothTexture and perfState.smooth then
+                restoreMaterials()
+                perfState.smooth = false
             end
+            if Config.Perf_SmoothTexture then applySmoothPlastic() end
         end)
     end
 end)
@@ -916,14 +1269,12 @@ local function findCoins()
         for _, obj in ipairs(root:GetDescendants()) do
             if (obj:IsA("BasePart") or obj:IsA("MeshPart")) and not seen[obj] then
                 local n = obj.Name:lower()
-                if n:find("coin") or n:find("token") or n == "money"
-                   or n:find("gold") or n:find("cash") then
+                if n:find("coin") or n:find("token") or n == "money" or n:find("gold") or n:find("cash") then
                     if not isBlacklisted(obj) then
                         local isInChar = false
                         for _, p in ipairs(Players:GetPlayers()) do
                             if p.Character and obj:IsDescendantOf(p.Character) then
-                                isInChar = true
-                                break
+                                isInChar = true break
                             end
                         end
                         if not isInChar and obj.Parent then
@@ -1088,225 +1439,6 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
---  ANTI-FLING
--- ============================================================
-local function enableAntiFling()
-    if not Config.AntiFling then return end
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
-    end
-end
-
--- ============================================================
---  INVISIBLE MODE (Seat Bug)
--- ============================================================
-local SeatInvisible = {}
-local invisMySeat = nil
-local invisActive = false
-
-local function invisCleanupSeat()
-    local e = workspace:FindFirstChild("invischair")
-    if e then pcall(function() e:Destroy() end) end
-    invisMySeat = nil
-end
-
-local function invisActivate()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    invisCleanupSeat()
-    local sp = hrp.CFrame
-    local tp = Vector3.new(Config.InvisibleX, Config.InvisibleY, Config.InvisibleZ)
-    char:MoveTo(tp)
-    task.wait(0.15)
-    local st = Instance.new("Seat")
-    st.Name = "invischair"
-    st.Anchored = false
-    st.CanCollide = false
-    st.Transparency = 1
-    st.Position = tp
-    st.Parent = workspace
-    invisMySeat = st
-    local wl = Instance.new("Weld")
-    wl.Part0 = st
-    wl.Part1 = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-    wl.Parent = st
-    task.wait()
-    st.CFrame = sp
-    for _, d in ipairs(char:GetDescendants()) do
-        if d:IsA("BasePart") or d:IsA("Decal") then
-            d.Transparency = 0.5
-        end
-    end
-end
-
-local function invisDeactivate()
-    invisCleanupSeat()
-    if LocalPlayer.Character then
-        for _, d in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if d:IsA("BasePart") or d:IsA("Decal") then
-                d.Transparency = 0
-            end
-        end
-    end
-end
-
-SeatInvisible.toggle = function()
-    invisActive = not invisActive
-    Config.Invisible = invisActive
-    if invisActive then invisActivate() else invisDeactivate() end
-end
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if invisActive and (not invisMySeat or not invisMySeat.Parent) then
-            invisActive = false
-            Config.Invisible = false
-            invisDeactivate()
-        end
-    end
-end)
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    if Config.AntiFling then enableAntiFling() end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.WalkSpeed = Config.Speed
-        hum.UseJumpPower = true
-        hum.JumpPower = Config.JumpPower
-    end
-    invisActive = false
-    Config.Invisible = false
-    invisCleanupSeat()
-end)
-
--- ============================================================
---  TELEPORTES
--- ============================================================
-local function teleportTo(position)
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
-        hrp.Velocity = Vector3.new(0, 0, 0)
-    end
-end
-
-local function findObby()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("obby") then
-            return obj.Position
-        end
-    end
-    return nil
-end
-
-local function findMapCenter()
-    local sum, count = Vector3.new(), 0
-    for _, p in ipairs(Players:GetPlayers()) do
-        local c = p.Character
-        if c and c:FindFirstChild("HumanoidRootPart") then
-            sum = sum + c.HumanoidRootPart.Position
-            count = count + 1
-        end
-    end
-    if count > 0 then return sum / count end
-    return Vector3.new(0, 10, 0)
-end
-
--- ============================================================
---  GRAB GUN
--- ============================================================
-local grabbing = false
-local function grabGun()
-    if grabbing then return false end
-    local char = LocalPlayer.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-    for _, t in ipairs(char:GetChildren()) do
-        if t:IsA("Tool") and t.Name:lower():find("gun") then return false end
-    end
-    local gun = findDroppedGunPart()
-    if not gun then return false end
-    local handle = getGunHandle(gun)
-    if not handle then return false end
-
-    grabbing = true
-    local originalCFrame = hrp.CFrame
-    local originalVelocity = hrp.Velocity
-    hrp.CFrame = CFrame.new(handle.Position + Vector3.new(0, 0.5, 0))
-    hrp.Velocity = Vector3.new(0, 0, 0)
-    task.wait(0.2)
-
-    local prompt = gun:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then
-        pcall(function() fireproximityprompt(prompt) end)
-        task.wait(0.1)
-    end
-    local cd = gun:FindFirstChildOfClass("ClickDetector")
-    if cd then
-        pcall(function() fireclickdetector(cd) end)
-        task.wait(0.1)
-    end
-    pcall(function()
-        firetouchinterest(hrp, handle, 0)
-        firetouchinterest(hrp, handle, 1)
-        task.wait(0.05)
-        firetouchinterest(hrp, handle, 0)
-        firetouchinterest(hrp, handle, 1)
-        task.wait(0.05)
-        firetouchinterest(hrp, handle, 0)
-        firetouchinterest(hrp, handle, 1)
-    end)
-    task.wait(math.max(Config.AutoGrabGun_ReturnDelay, 0.3))
-    if char.Parent and hrp.Parent then
-        if Config.AutoGrabGun_ReturnInstant then
-            hrp.CFrame = originalCFrame
-            hrp.Velocity = originalVelocity
-        else
-            local start = hrp.Position
-            local target = originalCFrame.Position
-            for i = 1, 8 do
-                if not hrp.Parent then break end
-                hrp.CFrame = CFrame.new(start:Lerp(target, i / 8))
-                task.wait(0.02)
-            end
-            hrp.CFrame = originalCFrame
-            hrp.Velocity = originalVelocity
-        end
-    end
-    grabbing = false
-    return true
-end
-
-task.spawn(function()
-    while task.wait(Config.AutoGrabGun_Delay) do
-        pcall(function()
-            if Config.AutoGrabGun and not grabbing then
-                local char = LocalPlayer.Character
-                if char and getRole(LocalPlayer) ~= "Murderer" then
-                    local hasG = false
-                    for _, t in ipairs(char:GetChildren()) do
-                        if t:IsA("Tool") and t.Name:lower():find("gun") then
-                            hasG = true
-                            break
-                        end
-                    end
-                    if not hasG and findDroppedGunPart() then pcall(grabGun) end
-                end
-            end
-        end)
-    end
-end)
-
--- ============================================================
 --  INTERFACE
 -- ============================================================
 local Window = Rayfield:CreateWindow({
@@ -1343,109 +1475,28 @@ VisualTab:CreateToggle({
 
 -- Aimbot
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
-AimbotTab:CreateToggle({
-    Name = "Aimbot por Role",
-    CurrentValue = false,
-    Callback = function(v) Config.Aimbot = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Aimbot Instantaneo (snap)",
-    CurrentValue = false,
-    Callback = function(v) Config.Aimbot_Instant = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Aimbot Team Check",
-    CurrentValue = false,
-    Callback = function(v) Config.Aimbot_TeamCheck = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Aimbot Wall Check",
-    CurrentValue = false,
-    Callback = function(v) Config.Aimbot_WallCheck = v end,
-})
-AimbotTab:CreateSlider({
-    Name = "Suavidade",
-    Range = {0.05, 1.0}, Increment = 0.05, CurrentValue = 0.2,
-    Callback = function(v) Config.Aimbot_Smoothness = v end,
-})
-AimbotTab:CreateSlider({
-    Name = "FOV do Aimbot",
-    Range = {30, 500}, Increment = 5, Suffix = " px",
-    CurrentValue = 150,
-    Callback = function(v) Config.Aimbot_FOV = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Mostrar FOVs",
-    CurrentValue = true,
-    Callback = function(v) Config.Show_FOV = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Trigger Bot",
-    CurrentValue = false,
-    Callback = function(v) Config.TriggerBot = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Trigger Instantaneo",
-    CurrentValue = false,
-    Callback = function(v) Config.TriggerBot_Instant = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Trigger Team Check",
-    CurrentValue = false,
-    Callback = function(v) Config.TriggerBot_TeamCheck = v end,
-})
-AimbotTab:CreateToggle({
-    Name = "Trigger Wall Check",
-    CurrentValue = false,
-    Callback = function(v) Config.TriggerBot_WallCheck = v end,
-})
-AimbotTab:CreateSlider({
-    Name = "Trigger Bot FOV",
-    Range = {10, 300}, Increment = 5, Suffix = " px",
-    CurrentValue = 40,
-    Callback = function(v) Config.TriggerBot_FOV = v end,
-})
-AimbotTab:CreateSlider({
-    Name = "Trigger Delay",
-    Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.08,
-    Callback = function(v) Config.TriggerBot_Delay = v end,
-})
+AimbotTab:CreateToggle({ Name = "Aimbot por Role", CurrentValue = false, Callback = function(v) Config.Aimbot = v end })
+AimbotTab:CreateToggle({ Name = "Aimbot Instantaneo (snap)", CurrentValue = false, Callback = function(v) Config.Aimbot_Instant = v end })
+AimbotTab:CreateToggle({ Name = "Aimbot Team Check", CurrentValue = false, Callback = function(v) Config.Aimbot_TeamCheck = v end })
+AimbotTab:CreateToggle({ Name = "Aimbot Wall Check", CurrentValue = false, Callback = function(v) Config.Aimbot_WallCheck = v end })
+AimbotTab:CreateSlider({ Name = "Suavidade", Range = {0.05, 1.0}, Increment = 0.05, CurrentValue = 0.2, Callback = function(v) Config.Aimbot_Smoothness = v end })
+AimbotTab:CreateSlider({ Name = "FOV do Aimbot", Range = {30, 500}, Increment = 5, Suffix = " px", CurrentValue = 150, Callback = function(v) Config.Aimbot_FOV = v end })
+AimbotTab:CreateToggle({ Name = "Mostrar FOVs", CurrentValue = true, Callback = function(v) Config.Show_FOV = v end })
+AimbotTab:CreateToggle({ Name = "Trigger Bot", CurrentValue = false, Callback = function(v) Config.TriggerBot = v end })
+AimbotTab:CreateToggle({ Name = "Trigger Instantaneo", CurrentValue = false, Callback = function(v) Config.TriggerBot_Instant = v end })
+AimbotTab:CreateToggle({ Name = "Trigger Team Check", CurrentValue = false, Callback = function(v) Config.TriggerBot_TeamCheck = v end })
+AimbotTab:CreateToggle({ Name = "Trigger Wall Check", CurrentValue = false, Callback = function(v) Config.TriggerBot_WallCheck = v end })
+AimbotTab:CreateSlider({ Name = "Trigger Bot FOV", Range = {10, 300}, Increment = 5, Suffix = " px", CurrentValue = 40, Callback = function(v) Config.TriggerBot_FOV = v end })
+AimbotTab:CreateSlider({ Name = "Trigger Delay", Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.08, Callback = function(v) Config.TriggerBot_Delay = v end })
 
 -- Auto Kill
 local AutoKillTab = Window:CreateTab("Auto Kill", 4483362458)
-AutoKillTab:CreateToggle({
-    Name = "Auto Kill",
-    CurrentValue = false,
-    Callback = function(v) Config.AutoKill = v end,
-})
-AutoKillTab:CreateSlider({
-    Name = "Alcance Faca",
-    Range = {5, 50}, Increment = 1, Suffix = " studs",
-    CurrentValue = 15,
-    Callback = function(v) Config.AutoKill_Range = v end,
-})
-AutoKillTab:CreateSlider({
-    Name = "Alcance Tiro",
-    Range = {50, 1000}, Increment = 10, Suffix = " studs",
-    CurrentValue = 500,
-    Callback = function(v) Config.AutoKill_GunRange = v end,
-})
-AutoKillTab:CreateSlider({
-    Name = "Delay",
-    Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
-    CurrentValue = 0.35,
-    Callback = function(v) Config.AutoKill_Delay = v end,
-})
-AutoKillTab:CreateToggle({
-    Name = "Wall Check",
-    CurrentValue = true,
-    Callback = function(v) Config.AutoKill_WallCheck = v end,
-})
-AutoKillTab:CreateToggle({
-    Name = "Auto Equip",
-    CurrentValue = true,
-    Callback = function(v) Config.AutoKill_AutoEquip = v end,
-})
+AutoKillTab:CreateToggle({ Name = "Auto Kill", CurrentValue = false, Callback = function(v) Config.AutoKill = v end })
+AutoKillTab:CreateSlider({ Name = "Alcance Faca", Range = {5, 50}, Increment = 1, Suffix = " studs", CurrentValue = 15, Callback = function(v) Config.AutoKill_Range = v end })
+AutoKillTab:CreateSlider({ Name = "Alcance Tiro", Range = {50, 1000}, Increment = 10, Suffix = " studs", CurrentValue = 500, Callback = function(v) Config.AutoKill_GunRange = v end })
+AutoKillTab:CreateSlider({ Name = "Delay", Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s", CurrentValue = 0.35, Callback = function(v) Config.AutoKill_Delay = v end })
+AutoKillTab:CreateToggle({ Name = "Wall Check", CurrentValue = true, Callback = function(v) Config.AutoKill_WallCheck = v end })
+AutoKillTab:CreateToggle({ Name = "Auto Equip", CurrentValue = true, Callback = function(v) Config.AutoKill_AutoEquip = v end })
 
 -- Gun
 local GunTab = Window:CreateTab("Gun", 4483362458)
@@ -1460,16 +1511,8 @@ GunTab:CreateButton({
         end
     end,
 })
-GunTab:CreateToggle({
-    Name = "Auto Grab Gun",
-    CurrentValue = false,
-    Callback = function(v) Config.AutoGrabGun = v end,
-})
-GunTab:CreateToggle({
-    Name = "Retorno instantaneo",
-    CurrentValue = true,
-    Callback = function(v) Config.AutoGrabGun_ReturnInstant = v end,
-})
+GunTab:CreateToggle({ Name = "Auto Grab Gun", CurrentValue = false, Callback = function(v) Config.AutoGrabGun = v end })
+GunTab:CreateToggle({ Name = "Retorno instantaneo", CurrentValue = true, Callback = function(v) Config.AutoGrabGun_ReturnInstant = v end })
 
 -- Auto Farm
 local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
@@ -1480,26 +1523,12 @@ FarmTab:CreateToggle({
         CoinFarm.Enabled = v
         if v then
             startCoinFarm()
-            Rayfield:Notify({
-                Title = "Auto Farm",
-                Content = "Farmando ate " .. CoinFarm.MaxCoins .. " moedas...",
-                Duration = 4,
-            })
+            Rayfield:Notify({ Title = "Auto Farm", Content = "Farmando ate " .. CoinFarm.MaxCoins .. " moedas...", Duration = 4 })
         end
     end,
 })
-FarmTab:CreateSlider({
-    Name = "Farm Speed",
-    Range = {0.2, 1.0}, Increment = 0.05, Suffix = " s",
-    CurrentValue = 0.4,
-    Callback = function(v) CoinFarm.Speed = v end,
-})
-FarmTab:CreateSlider({
-    Name = "Limite de Moedas",
-    Range = {10, 50}, Increment = 5,
-    CurrentValue = 40,
-    Callback = function(v) CoinFarm.MaxCoins = v end,
-})
+FarmTab:CreateSlider({ Name = "Farm Speed", Range = {0.2, 1.0}, Increment = 0.05, Suffix = " s", CurrentValue = 0.4, Callback = function(v) CoinFarm.Speed = v end })
+FarmTab:CreateSlider({ Name = "Limite de Moedas", Range = {10, 50}, Increment = 5, CurrentValue = 40, Callback = function(v) CoinFarm.MaxCoins = v end })
 FarmTab:CreateButton({
     Name = "Ver minhas moedas atuais",
     Callback = function()
@@ -1525,9 +1554,7 @@ FarmTab:CreateButton({
 -- Player
 local MoveTab = Window:CreateTab("Player", 4483362458)
 MoveTab:CreateSlider({
-    Name = "Speed",
-    Range = {16, 200}, Increment = 1, Suffix = " studs",
-    CurrentValue = 16,
+    Name = "Speed", Range = {16, 200}, Increment = 1, Suffix = " studs", CurrentValue = 16,
     Callback = function(v)
         Config.Speed = v
         local c = LocalPlayer.Character
@@ -1535,9 +1562,7 @@ MoveTab:CreateSlider({
     end,
 })
 MoveTab:CreateSlider({
-    Name = "Jump Power",
-    Range = {50, 300}, Increment = 5,
-    CurrentValue = 50,
+    Name = "Jump Power", Range = {50, 300}, Increment = 5, CurrentValue = 50,
     Callback = function(v)
         Config.JumpPower = v
         local c = LocalPlayer.Character
@@ -1547,19 +1572,10 @@ MoveTab:CreateSlider({
         end
     end,
 })
+MoveTab:CreateToggle({ Name = "Infinite Jump  [J]", CurrentValue = false, Callback = function(v) Config.InfiniteJump = v end })
+MoveTab:CreateToggle({ Name = "Anti Void  [V]", CurrentValue = false, Callback = function(v) Config.AntiVoid = v end })
 MoveTab:CreateToggle({
-    Name = "Infinite Jump  [Tecla: J]",
-    CurrentValue = false,
-    Callback = function(v) Config.InfiniteJump = v end,
-})
-MoveTab:CreateToggle({
-    Name = "Anti Void  [Tecla: V]",
-    CurrentValue = false,
-    Callback = function(v) Config.AntiVoid = v end,
-})
-MoveTab:CreateToggle({
-    Name = "Fly  [Tecla: F]",
-    CurrentValue = false,
+    Name = "Fly  [F]", CurrentValue = false,
     Callback = function(v)
         Config.Fly = v
         if not v then
@@ -1571,15 +1587,9 @@ MoveTab:CreateToggle({
         end
     end,
 })
-MoveTab:CreateSlider({
-    Name = "Fly Speed",
-    Range = {10, 200}, Increment = 5,
-    CurrentValue = 50,
-    Callback = function(v) Config.FlySpeed = v end,
-})
+MoveTab:CreateSlider({ Name = "Fly Speed", Range = {10, 200}, Increment = 5, CurrentValue = 50, Callback = function(v) Config.FlySpeed = v end })
 MoveTab:CreateToggle({
-    Name = "Noclip  [Tecla: N]",
-    CurrentValue = false,
+    Name = "Noclip  [N]", CurrentValue = false,
     Callback = function(v)
         Config.Noclip = v
         if not v then
@@ -1593,57 +1603,28 @@ MoveTab:CreateToggle({
     end,
 })
 MoveTab:CreateToggle({
-    Name = "Invisible Mode (Seat Bug)  [Tecla: I]",
-    CurrentValue = false,
+    Name = "Invisible Mode (Seat Bug)  [I]", CurrentValue = false,
     Callback = function(v)
         task.spawn(function() SeatInvisible.toggle() end)
     end,
 })
-MoveTab:CreateSlider({
-    Name = "Invisible Y (altura)",
-    Range = {1000, 50000}, Increment = 100,
-    CurrentValue = 5000,
-    Callback = function(v) Config.InvisibleY = v end,
-})
+MoveTab:CreateSlider({ Name = "Invisible Y (altura)", Range = {1000, 50000}, Increment = 100, CurrentValue = 5000, Callback = function(v) Config.InvisibleY = v end })
 
 -- Performance
 local PerfTab = Window:CreateTab("Performance", 4483362458)
-
-PerfTab:CreateToggle({
-    Name = "Remover Neblina (No Fog)",
-    CurrentValue = false,
-    Callback = function(v) Config.Perf_NoFog = v end,
-})
-PerfTab:CreateToggle({
-    Name = "Remover Sombras (No Shadows)",
-    CurrentValue = false,
-    Callback = function(v) Config.Perf_NoShadow = v end,
-})
-PerfTab:CreateToggle({
-    Name = "Textura Lisa (SmoothPlastic)",
-    CurrentValue = false,
-    Callback = function(v) Config.Perf_SmoothTexture = v end,
-})
-PerfTab:CreateToggle({
-    Name = "Full Bright",
-    CurrentValue = false,
-    Callback = function(v) Config.Perf_FullBright = v end,
-})
-
+PerfTab:CreateToggle({ Name = "Remover Neblina (No Fog)", CurrentValue = false, Callback = function(v) Config.Perf_NoFog = v end })
+PerfTab:CreateToggle({ Name = "Remover Sombras (No Shadows)", CurrentValue = false, Callback = function(v) Config.Perf_NoShadow = v end })
+PerfTab:CreateToggle({ Name = "Textura Lisa (SmoothPlastic)", CurrentValue = false, Callback = function(v) Config.Perf_SmoothTexture = v end })
+PerfTab:CreateToggle({ Name = "Full Bright", CurrentValue = false, Callback = function(v) Config.Perf_FullBright = v end })
 PerfTab:CreateButton({
     Name = "Aplicar tudo (recomendado)",
     Callback = function()
         Config.Perf_NoFog = true
         Config.Perf_NoShadow = true
         Config.Perf_FullBright = true
-        Rayfield:Notify({
-            Title = "Performance",
-            Content = "Neblina, sombras e FullBright ativados!",
-            Duration = 4,
-        })
+        Rayfield:Notify({ Title = "Performance", Content = "Neblina, sombras e FullBright ativados!", Duration = 4 })
     end,
 })
-
 PerfTab:CreateButton({
     Name = "Resetar Performance",
     Callback = function()
@@ -1654,11 +1635,13 @@ PerfTab:CreateButton({
         restoreLighting("bright")
         restoreLighting("fog")
         restoreLighting("shadow")
-        Rayfield:Notify({
-            Title = "Performance",
-            Content = "Tudo resetado ao normal.",
-            Duration = 4,
-        })
+        restoreMaterials()
+        restoreShadows()
+        perfState.bright = false
+        perfState.nofog = false
+        perfState.noshadow = false
+        perfState.smooth = false
+        Rayfield:Notify({ Title = "Performance", Content = "Tudo restaurado ao original.", Duration = 4 })
     end,
 })
 
@@ -1687,11 +1670,16 @@ TpTab:CreateButton({
 -- Protecao
 local ProtTab = Window:CreateTab("Protecao", 4483362458)
 ProtTab:CreateToggle({
-    Name = "Anti-Fling",
+    Name = "Anti-Fling (sem colisao com players)",
     CurrentValue = false,
     Callback = function(v)
         Config.AntiFling = v
-        if v then enableAntiFling() end
+        if v then
+            enableAntiFling()
+        else
+            pcall(restoreAllGroups)
+            Rayfield:Notify({ Title = "Anti-Fling", Content = "Desligado. Colisao restaurada.", Duration = 3 })
+        end
     end,
 })
 
@@ -1731,11 +1719,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if key == Enum.KeyCode.G then
         task.spawn(function()
             local ok = grabGun()
-            Rayfield:Notify({
-                Title = "Grab Gun",
-                Content = ok and "Arma pega!" or "Nenhuma arma dropada.",
-                Duration = 3,
-            })
+            Rayfield:Notify({ Title = "Grab Gun", Content = ok and "Arma pega!" or "Nenhuma arma dropada.", Duration = 3 })
         end)
     end
 
@@ -1752,11 +1736,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if key == Enum.KeyCode.I then
         task.spawn(function()
             SeatInvisible.toggle()
-            Rayfield:Notify({
-                Title = "Invisible",
-                Content = Config.Invisible and "Ligado" or "Desligado",
-                Duration = 2,
-            })
+            Rayfield:Notify({ Title = "Invisible", Content = Config.Invisible and "Ligado" or "Desligado", Duration = 2 })
         end)
     end
 end)
