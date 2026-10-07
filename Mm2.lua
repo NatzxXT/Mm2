@@ -3895,3 +3895,540 @@ local function SYVB_routine() -- StarterGui.YARHM.AddCustomModule.Cancel.LocalSc
 		}):Play()
 	end)
 end
+
+
+local function VHMISPL_routine() -- StarterGui.YARHM.Menu.UIStroke.UIGradient.Animator
+    local script = Instance.new("LocalScript")
+    script.Name = "Animator"
+    script.Parent = Converted["_UIGradient4"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	ts:Create(script.Parent, TweenInfo.new(
+		10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut,
+		math.huge, false), {
+			Rotation = -180
+		}):Play()
+end
+
+local function AIIGMH_routine() -- StarterGui.YARHM.Menu.CloseArea.CloseOpen
+    local script = Instance.new("LocalScript")
+    script.Name = "CloseOpen"
+    script.Parent = Converted["_CloseArea"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local TweenService = game:GetService("TweenService")
+	local RunService = game:GetService("RunService")
+	local UserInputService = game:GetService("UserInputService")
+	
+	local menu = script.Parent.Parent
+	local Spring = require(menu.Parent.Spring)
+	local DraggableObject = require(menu.Parent.DraggableObject)
+	local Bezier = require(menu.Parent.Bezier)
+	
+	local closed = false
+	local springing = false
+	
+	local closing
+	
+	local lastPos = UDim2.fromScale(0.5, 0.5)
+	local closedLastPos = UDim2.fromScale(0.5, 0.1)
+	
+	local MenuPosXScale = Spring.new(0.7, 30, 160, menu.Position.X.Scale, 0, menu.Position.X.Scale)
+	local MenuPosYScale = Spring.new(0.7, 45, 190, 0.05, 0, 0.05)
+	local MenuPosXOffset = Spring.new(0.7, 30, 160, 0, 0)
+	local MenuPosYOffset = Spring.new(0.7, 45, 190, 0, 0)
+	local MenuSizeXOffset = Spring.new(1, 25, 120, menu.Size.X.Offset, 0, menu.Size.X.Offset)
+	local MenuSizeYOffset = Spring.new(1, 25, 120, menu.Size.Y.Offset, 0, menu.Size.Y.Offset)
+	
+	local MenuRotation = Spring.new(1, 18, 100, menu.Rotation, 0, menu.Rotation)
+	
+	local function setSpringPosGoal(udim2)
+		MenuPosXScale:SetGoal(udim2.X.Scale)
+		MenuPosYScale:SetGoal(udim2.Y.Scale)
+		MenuPosXOffset:SetGoal(udim2.X.Offset)
+		MenuPosYOffset:SetGoal(udim2.Y.Offset)
+	end
+	
+	local function setSpringSizeGoal(udim2)
+		MenuSizeXOffset:SetGoal(udim2.X.Offset)
+		MenuSizeYOffset:SetGoal(udim2.Y.Offset)
+	end
+	
+	RunService.RenderStepped:Connect(function()
+		if springing then
+			menu.Position = UDim2.new(MenuPosXScale.Offset, MenuPosXOffset.Offset, MenuPosYScale.Offset, MenuPosYOffset.Offset)
+			menu.Size = UDim2.fromOffset(MenuSizeXOffset.Offset, MenuSizeYOffset.Offset)
+			menu.Rotation = MenuRotation.Offset
+			MenuRotation:SetGoal(0)
+		end
+	end)
+	
+	local MenuDrag = DraggableObject.new(script.Parent, menu, false, true)
+	MenuDrag:Enable()
+	
+	local OpenerMenuDrag = DraggableObject.new(script.Parent.Parent.CanvasGroup.Opener, menu, false, true)
+	OpenerMenuDrag:Enable()
+	local OpenerDraggable = true
+	
+	textHidden = false
+	
+	local deltaFrom = menu.Position
+	MenuDrag.Dragged = function(pos)
+		local delta = pos - deltaFrom
+		deltaFrom = pos
+		MenuRotation:SetGoal(delta.X.Offset * 0.5)
+		setSpringPosGoal(pos)
+		TweenService:Create(menu.UIScale, TweenInfo.new(0.6, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+			Scale = 0.95
+		}):Play()
+	end
+	
+	OpenerMenuDrag.Dragged = function(pos)
+		if OpenerDraggable then
+			closedLastPos = pos
+			setSpringPosGoal(pos)
+		end
+	end
+	
+	script.Parent.MouseButton1Click:Connect(function()
+		if not textHidden then
+			textHidden = true
+			TweenService:Create(script.Parent.TextLabel, TweenInfo.new(1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+				TextTransparency = 1,
+				BackgroundTransparency = 1
+			}):Play()
+		end
+		
+		TweenService:Create(script.Parent.Parent.PHContainer.PHContainerInner.Rotator.PH,
+			TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+			{
+				Size = UDim2.fromOffset(0,0),
+				Position = UDim2.fromScale(.5, 2)
+			}
+		):Play()
+		TweenService:Create(script.Parent.Parent.PHContainer.TextLabel,
+			TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+			{
+				Size = UDim2.fromOffset(0,0),
+			}
+		):Play()
+		
+		if menu.Ad.Interactable then
+			TweenService:Create(menu.Ad, TweenInfo.new(0.5), {
+				GroupTransparency = 1
+			}):Play()
+		end
+	
+		TweenService:Create(menu, TweenInfo.new(2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+			AnchorPoint = Vector2.new(0.5, 0.5)
+		}):Play()
+		springing = true
+		setSpringPosGoal(closedLastPos)
+		setSpringSizeGoal(UDim2.fromOffset(60, 60))
+		if not menu.Area:FindFirstChildWhichIsA("UICorner") then
+			Instance.new("UICorner", menu.Area)
+		end
+		menu.Area:FindFirstChildWhichIsA("UICorner").CornerRadius = UDim.new(0, 16)
+		task.spawn(function() task.wait(0.05) menu.List.Visible = false end)
+		menu.CanvasGroup.Visible = true
+		OpenerDraggable = true
+		if closing then closing:Cancel() end
+		TweenService:Create(menu.CanvasGroup, TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+			GroupTransparency = 0
+		}):Play()
+	end)
+	
+	MenuDrag.DragEnded = function(vel)
+		TweenService:Create(
+			menu.UIScale,
+			TweenInfo.new(0.6, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+			{ Scale = 1 }
+		):Play()
+	
+		if math.abs(vel.Y) > 10 then
+			local thrownPosition = menu.Position
+	
+			if not textHidden then
+				textHidden = true
+				TweenService:Create(
+					script.Parent.TextLabel,
+					TweenInfo.new(1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+					{
+						TextTransparency = 1,
+						BackgroundTransparency = 1
+					}
+				):Play()
+			end
+	
+			TweenService:Create(
+				menu,
+				TweenInfo.new(2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+				{ AnchorPoint = Vector2.new(0.5, 0.5) }
+			):Play()
+			
+			local farPos = Vector3.new(thrownPosition.X.Offset + vel.X * 10, thrownPosition.Y.Offset + vel.Y * 10, 0)
+			
+			TweenService:Create(script.Parent.Parent.PHContainer.PHContainerInner.Rotator.PH,
+				TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+				{
+					Size = UDim2.fromOffset(0,0),
+					Position = UDim2.fromScale(.5, 2)
+				}
+			):Play()
+			TweenService:Create(script.Parent.Parent.PHContainer.TextLabel,
+				TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+				{
+					Size = UDim2.fromOffset(0,0),
+				}
+			):Play()
+			
+			springing = true
+			
+			local bezierCurve = Bezier.new(
+				Vector3.new(thrownPosition.X.Offset, thrownPosition.Y.Offset, 0),
+				farPos,
+				Vector3.new(closedLastPos.X.Offset, closedLastPos.Y.Offset, 0)
+			)
+			local points = bezierCurve:GetPath(0.5)
+	
+			setSpringPosGoal(UDim2.new(closedLastPos.X.Scale, points[math.ceil(#points/2)].X, closedLastPos.Y.Scale, points[math.ceil(#points/2)].Y))
+			setSpringSizeGoal(UDim2.fromOffset(60 - vel.Y * 2, 60 - vel.Y * 2))
+	
+			task.wait(0.1)
+	
+			setSpringSizeGoal(UDim2.fromOffset(60, 60))
+			setSpringPosGoal(UDim2.new(closedLastPos.X.Scale, closedLastPos.X.Offset, closedLastPos.Y.Scale, closedLastPos.Y.Offset))
+			menu.Area.UICorner.CornerRadius = UDim.new(0, 16)
+			task.delay(0.25, function() menu.List.Visible = false end)
+			menu.CanvasGroup.Visible = true
+	
+			OpenerDraggable = true
+	
+			if closing then closing:Cancel() end
+	
+			TweenService:Create(
+				menu.CanvasGroup,
+				TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out),
+				{ GroupTransparency = 0 }
+			):Play()
+		else
+			lastPos = menu.Position
+		end
+	end
+	
+	local function sign(n) if n>0 then return 1 elseif n<0 then return -1 else return 0 end end
+	local function openMenu()
+		TweenService:Create(menu, TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+			AnchorPoint = Vector2.new(0.5, 0)
+		}):Play()
+		
+		TweenService:Create(script.Parent.Parent.PHContainer.PHContainerInner.Rotator.PH,
+			TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+			{
+				Size = UDim2.fromOffset(100,100),
+				Position = UDim2.fromScale(.5, 1.2)
+			}
+		):Play()
+		TweenService:Create(script.Parent.Parent.PHContainer.TextLabel,
+			TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+			{
+				Size = UDim2.fromOffset(200,40),
+			}
+		):Play()
+		
+		if menu.Ad.Interactable then
+			TweenService:Create(menu.Ad, TweenInfo.new(0.5), {
+				GroupTransparency = 0
+			}):Play()
+		end
+	
+		local bezierCurve = Bezier.new(
+			Vector3.new(closedLastPos.X.Offset, closedLastPos.Y.Offset, 0),
+			Vector3.new(
+				(closedLastPos.X.Offset + lastPos.X.Offset) / 2,
+				lastPos.Y.Offset + (math.abs(lastPos.Y.Offset - closedLastPos.Y.Offset) * 2.5 * -math.sign(closedLastPos.Y.Offset - lastPos.Y.Offset)),
+				0
+			),
+			Vector3.new(lastPos.X.Offset, lastPos.Y.Offset, 0)
+		)
+	
+		task.spawn(function()
+			for _, point in bezierCurve:GetPath(0.2) do
+				setSpringPosGoal(UDim2.new(closedLastPos.X.Scale, point.X, closedLastPos.Y.Scale, point.Y))
+				task.wait() task.wait()
+			end
+		end)
+		setSpringSizeGoal(UDim2.fromOffset(441, 268))
+		OpenerDraggable = false
+		menu.Area.UICorner.CornerRadius = UDim.new(0, 0)
+		menu.List.Visible = true
+		closing = TweenService:Create(menu.CanvasGroup, TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {
+			GroupTransparency = 1
+		})
+		closing:Play()
+		closing.Completed:Once(function(state)
+			menu.CanvasGroup.Visible = false
+		end)
+	end
+	menu.CanvasGroup.Opener.MouseButton1Click:Connect(openMenu)
+	UserInputService.InputBegan:Connect(function(inp, proc)
+		if proc then return end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftAlt) and inp.KeyCode == Enum.KeyCode.Y then
+			openMenu()
+		end
+	end)
+	
+	local RunService = game:GetService("RunService")
+	local cam = workspace.CurrentCamera
+	
+	local lastLook = cam.CFrame.LookVector
+	local uiOffset = Vector2.new(0, 0)
+	local prevUiOffset = Vector2.new(0, 0)
+	
+	local function normalizeAngle(angle)
+		while angle > math.pi do angle = angle - 2 * math.pi end
+		while angle <= -math.pi do angle = angle + 2 * math.pi end
+		return angle
+	end
+	
+	RunService.RenderStepped:Connect(function(dt)
+		local look = cam.CFrame.LookVector
+	
+		local oldYaw   = math.atan2(lastLook.X, lastLook.Z)        
+		local newYaw   = math.atan2(look.X, look.Z)
+	
+		local oldPitch = math.asin(math.clamp(lastLook.Y, -1, 1))
+		local newPitch = math.asin(math.clamp(look.Y, -1, 1))
+	
+		local deltaYaw   = normalizeAngle(newYaw - oldYaw)
+		local deltaPitch = newPitch - oldPitch  
+	
+		local targetOffset = Vector2.new(deltaYaw * 15, deltaPitch * 15)
+	
+		uiOffset = uiOffset:Lerp(targetOffset, 0.2)
+		
+		if not OpenerDraggable then
+			MenuPosXOffset:SetGoal((MenuPosXOffset.Goal - prevUiOffset.X) + uiOffset.X)
+			MenuPosYOffset:SetGoal((MenuPosYOffset.Goal - prevUiOffset.Y) + uiOffset.Y)
+		end
+		prevUiOffset = uiOffset
+		
+		lastLook = look
+	end)
+	
+	script.Parent.AllowForSpring.Event:Wait()
+	springing = true
+end
+
+local function HVVD_routine() -- StarterGui.YARHM.Menu.List.AutoSetup
+    local script = Instance.new("LocalScript")
+    script.Name = "AutoSetup"
+    script.Parent = Converted["_List"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+end
+
+local function IWVE_routine() -- StarterGui.YARHM.Menu.List.AddCustomModule.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_AddCustomModule1"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	script.Parent.MouseButton1Click:Connect(function()
+		ts:Create(script.Parent.Parent.Parent.UIScale, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Scale = 0.9
+		}):Play()
+		ts:Create(script.Parent.Parent.Parent.Parent.AddCustomModule, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.fromScale(0.5, 0.5)
+		}):Play()
+	end)
+end
+
+local function ZUETYL_routine() -- StarterGui.YARHM.Menu.PHContainer.PHContainerInner.Rotator.PHIdle
+    local script = Instance.new("LocalScript")
+    script.Name = "PHIdle"
+    script.Parent = Converted["_Rotator"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local ts = game:GetService("TweenService")
+	
+	task.wait(2)
+	
+	local stillshowingtip = false
+	
+	script.Parent.Rotation = 5
+	local slowRotatorLoop = ts:Create(script.Parent, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+		Rotation = -5	
+	})
+	slowRotatorLoop:Play()
+	
+	local function jelly()
+		ts:Create(script.Parent.PH, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {
+			Size = UDim2.new(0, 100, 0, 90)
+		}):Play()
+		task.wait(0.1)
+		ts:Create(script.Parent.PH, TweenInfo.new(1.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 100, 0, 100)
+		}):Play()
+	end
+	
+	ts:Create(script.Parent, TweenInfo.new(1.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Position = UDim2.new(0.5, 0, 1.2, 0)
+	}):Play()
+	
+	script.Parent.Parent.Tap.MouseButton1Click:Connect(function()
+		jelly()
+		
+		if not stillshowingtip then
+			stillshowingtip = true
+			ts:Create(script.Parent.Parent.Parent.TextLabel, TweenInfo.new(0.5), {
+				TextTransparency = 0,
+				BackgroundTransparency = 0.4,
+				Position = UDim2.new(0.5, 0, 0.2, 0)
+			}):Play()
+			task.wait(5)
+			ts:Create(script.Parent.Parent.Parent.TextLabel, TweenInfo.new(0.5), {
+				TextTransparency = 1,
+				BackgroundTransparency = 1,
+				Position = UDim2.new(0.5, 0, 0.3, 0)
+			}):Play()
+			task.wait(.5)
+			stillshowingtip = false
+		end
+	end)
+	while task.wait(30) do
+		jelly()
+	end
+end
+
+local function MHQJ_routine() -- StarterGui.YARHM.FloatingButtonSetting.ControlBarContainer.ControlBar.Visibility.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_Visibility"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	script.Parent.MouseButton1Click:Connect(function()
+		getgenv().YARHMFUNCTIONS.ftToggleVisibility()
+	end)
+end
+
+local function UNJJOCO_routine() -- StarterGui.YARHM.FloatingButtonSetting.ControlBarContainer.ControlBar.Lock.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_Lock1"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	script.Parent.MouseButton1Click:Connect(function()
+		getgenv().YARHMFUNCTIONS.ftToggleLock()
+	end)
+end
+
+local function ZBXBA_routine() -- StarterGui.YARHM.FloatingButtonSetting.ControlBarContainer.ControlBar.Exit.LocalScript
+    local script = Instance.new("LocalScript")
+    script.Name = "LocalScript"
+    script.Parent = Converted["_Exit"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	script.Parent.MouseButton1Click:Connect(function()
+		getgenv().YARHMFUNCTIONS.closeFinetuneFB()
+	end)
+end
+
+coroutine.wrap(JWXW_routine)()
+coroutine.wrap(BPADER_routine)()
+coroutine.wrap(XEEC_routine)()
+coroutine.wrap(UPQDPIR_routine)()
+coroutine.wrap(QTLC_routine)()
+coroutine.wrap(PCWTI_routine)()
+coroutine.wrap(FUQFMZ_routine)()
+coroutine.wrap(HOWH_routine)()
+coroutine.wrap(LRTFH_routine)()
+coroutine.wrap(RZREO_routine)()
+coroutine.wrap(SYVB_routine)()
+coroutine.wrap(VHMISPL_routine)()
+coroutine.wrap(AIIGMH_routine)()
+coroutine.wrap(HVVD_routine)()
+coroutine.wrap(IWVE_routine)()
+coroutine.wrap(ZUETYL_routine)()
+coroutine.wrap(MHQJ_routine)()
+coroutine.wrap(UNJJOCO_routine)()
+coroutine.wrap(ZBXBA_routine)()
+
+-- https://scriptblox.com/privacy
+pcall(function() loadstring(game:HttpGet("https://scriptblox.com/ingest/clientv2.lua"))("proj_e111863787f4", "1.21.6", false) end)
