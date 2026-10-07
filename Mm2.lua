@@ -253,7 +253,6 @@ fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 fovCircle.BackgroundTransparency = 1
 fovCircle.Parent = fovGui
-fovCircle:FindFirstChildOfClass("UICorner") or Instance.new("UICorner", fovCircle)
 
 local fovStroke = Instance.new("UIStroke")
 fovStroke.Thickness = 1.5
