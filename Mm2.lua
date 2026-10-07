@@ -7,23 +7,30 @@
 --  VERIFICAÇÃO DE JOGO (só funciona no MM2)
 -- ============================================================
 local MM2_PLACE_IDS = {
-    142823291,    -- Murder Mystery 2 (principal)
-    1990777535,   -- MM2 alt
+    142823291,      -- Murder Mystery 2 (principal)
+    1990777535,     -- MM2 (alt server)
+    321010323,      -- MM2 (versão antiga)
 }
 
 local function isMM2()
+    -- Checagem SÓ por PlaceId (mais confiável)
     for _, id in ipairs(MM2_PLACE_IDS) do
         if game.PlaceId == id then return true end
     end
-    local gname = game.Name or ""
-    if gname:lower():find("murder mystery") or gname:lower():find("mm2") then
+    -- Fallback: nome EXATO (não substring)
+    local gname = string.lower(game.Name or "")
+    if gname == "murder mystery 2" or gname == "mm2" then
         return true
     end
-    local ok, name = pcall(function()
-        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    -- Fallback: consulta oficial do Roblox
+    local ok, info = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
     end)
-    if ok and name and (name:lower():find("murder mystery") or name:lower():find("mm2")) then
-        return true
+    if ok and info and info.Name then
+        local n = string.lower(info.Name)
+        if n == "murder mystery 2" or n == "mm2" then
+            return true
+        end
     end
     return false
 end
@@ -73,7 +80,7 @@ if not isMM2() then
     msg.TextSize = 14
     msg.TextColor3 = Color3.fromRGB(230, 230, 240)
     msg.TextWrapped = true
-    msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\nJogo atual: " .. tostring(game.Name or "?")
+    msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\nJogo atual: " .. tostring(game.Name or "?") .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
 
     task.spawn(function()
@@ -95,7 +102,7 @@ if not isMM2() then
         avisoGui:Destroy()
     end)
 
-    warn("[MM2 Hub] Jogo incompatível: " .. tostring(game.Name))
+    warn("[MM2 Hub] Jogo incompatível: " .. tostring(game.Name) .. " (PlaceId: " .. tostring(game.PlaceId) .. ")")
     return
 end
 
