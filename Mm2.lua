@@ -1,6 +1,106 @@
 -- ============================================================
 --  MM2 CHECK HUB v3 - FINAL
---  ESP • Aimbot • Trigger • AutoKill • Farm • GrabGun • Invisible
+--  Verificação de jogo • Performance • Tudo incluso
+-- ============================================================
+
+-- ============================================================
+--  VERIFICAÇÃO DE JOGO (só funciona no MM2)
+-- ============================================================
+local MM2_PLACE_IDS = {
+    142823291,    -- Murder Mystery 2 (principal)
+    1990777535,   -- MM2 alt
+}
+
+local function isMM2()
+    for _, id in ipairs(MM2_PLACE_IDS) do
+        if game.PlaceId == id then return true end
+    end
+    local gname = game.Name or ""
+    if gname:lower():find("murder mystery") or gname:lower():find("mm2") then
+        return true
+    end
+    local ok, name = pcall(function()
+        return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+    if ok and name and (name:lower():find("murder mystery") or name:lower():find("mm2")) then
+        return true
+    end
+    return false
+end
+
+if not isMM2() then
+    local avisoGui = Instance.new("ScreenGui")
+    avisoGui.Name = "MM2_NotCompatible"
+    avisoGui.ResetOnSpawn = false
+    avisoGui.IgnoreGuiInset = true
+    avisoGui.DisplayOrder = 9999
+    pcall(function() avisoGui.Parent = game:GetService("CoreGui") end)
+
+    local frame = Instance.new("Frame")
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    frame.Size = UDim2.fromOffset(420, 130)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    frame.BackgroundTransparency = 0.05
+    frame.BorderSizePixel = 0
+    frame.Parent = avisoGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 70, 70)
+    stroke.Thickness = 2
+    stroke.Transparency = 0.2
+    stroke.Parent = frame
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 0, 40)
+    title.Position = UDim2.fromOffset(10, 10)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 20
+    title.TextColor3 = Color3.fromRGB(255, 90, 90)
+    title.Text = "⚠ Jogo Incompatível"
+    title.Parent = frame
+
+    local msg = Instance.new("TextLabel")
+    msg.Size = UDim2.new(1, -20, 0, 60)
+    msg.Position = UDim2.fromOffset(10, 50)
+    msg.BackgroundTransparency = 1
+    msg.Font = Enum.Font.Gotham
+    msg.TextSize = 14
+    msg.TextColor3 = Color3.fromRGB(230, 230, 240)
+    msg.TextWrapped = true
+    msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\nJogo atual: " .. tostring(game.Name or "?")
+    msg.Parent = frame
+
+    task.spawn(function()
+        for i = 0, 1, 0.1 do
+            frame.BackgroundTransparency = 0.05 + 0.95 * (1 - i)
+            title.TextTransparency = 1 - i
+            msg.TextTransparency = 1 - i
+            task.wait(0.02)
+        end
+    end)
+
+    task.delay(5, function()
+        for i = 1, 0, -0.1 do
+            frame.BackgroundTransparency = 0.05 + 0.95 * (1 - i)
+            title.TextTransparency = 1 - i
+            msg.TextTransparency = 1 - i
+            task.wait(0.02)
+        end
+        avisoGui:Destroy()
+    end)
+
+    warn("[MM2 Hub] Jogo incompatível: " .. tostring(game.Name))
+    return
+end
+
+-- ============================================================
+--  SCRIPT PRINCIPAL
 -- ============================================================
 local okLoad, errLoad = pcall(function()
 
@@ -10,6 +110,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
+local Lighting = game:GetService("Lighting")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -58,6 +159,11 @@ local Config = {
     AutoGrabGun_Delay = 1.0,
     AutoGrabGun_ReturnDelay = 0.4,
     AutoGrabGun_ReturnInstant = true,
+    -- Performance
+    Perf_NoFog = false,
+    Perf_NoShadow = false,
+    Perf_SmoothTexture = false,
+    Perf_FullBright = false,
 }
 
 -- ============================================================
@@ -674,6 +780,77 @@ task.spawn(function()
 end)
 
 -- ============================================================
+--  PERFORMANCE (mudanças no Lighting)
+-- ============================================================
+local perfSaved = {}
+
+local function saveLightingOnce(key, props)
+    if perfSaved[key] then return end
+    perfSaved[key] = {}
+    for _, p in ipairs(props) do
+        perfSaved[key][p] = Lighting[p]
+    end
+end
+
+local function restoreLighting(key)
+    if not perfSaved[key] then return end
+    for p, v in pairs(perfSaved[key]) do
+        pcall(function() Lighting[p] = v end)
+    end
+    perfSaved[key] = nil
+end
+
+-- Loop de performance (aplica continuamente porque o jogo pode resetar)
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            -- Full Bright
+            if Config.Perf_FullBright then
+                saveLightingOnce("bright", { "Brightness", "Ambient", "OutdoorAmbient", "ClockTime" })
+                Lighting.Brightness = 3
+                Lighting.ClockTime = 14
+                Lighting.Ambient = Color3.fromRGB(200, 200, 200)
+                Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+            else
+                restoreLighting("bright")
+            end
+
+            -- No Fog
+            if Config.Perf_NoFog then
+                saveLightingOnce("fog", { "FogEnd", "FogStart", "FogColor" })
+                Lighting.FogEnd = 100000
+                Lighting.FogStart = 100000
+            else
+                restoreLighting("fog")
+            end
+
+            -- No Shadows
+            if Config.Perf_NoShadow then
+                saveLightingOnce("shadow", { "GlobalShadows" })
+                Lighting.GlobalShadows = false
+                -- Desliga sombras em todos os objetos
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and obj.CastShadow then
+                        pcall(function() obj.CastShadow = false end)
+                    end
+                end
+            else
+                restoreLighting("shadow")
+            end
+
+            -- Smooth Texture
+            if Config.Perf_SmoothTexture then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") then
+                        pcall(function() obj.Material = Enum.Material.SmoothPlastic end)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ============================================================
 --  AUTO FARM
 -- ============================================================
 local CoinFarm = { Enabled = false, Speed = 0.4, MaxCoins = 40 }
@@ -885,7 +1062,7 @@ local function enableAntiFling()
 end
 
 -- ============================================================
---  INVISIBLE MODE (Seat Bug) - idêntico ao original
+--  INVISIBLE MODE (Seat Bug)
 -- ============================================================
 local SeatInvisible = {}
 local invisMySeat = nil
@@ -902,15 +1079,11 @@ local function invisActivate()
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     invisCleanupSeat()
-
     local sp = hrp.CFrame
     local tp = Vector3.new(Config.InvisibleX, Config.InvisibleY, Config.InvisibleZ)
-
     char:MoveTo(tp)
     task.wait(0.15)
-
     local st = Instance.new("Seat")
     st.Name = "invischair"
     st.Anchored = false
@@ -919,16 +1092,12 @@ local function invisActivate()
     st.Position = tp
     st.Parent = workspace
     invisMySeat = st
-
     local wl = Instance.new("Weld")
     wl.Part0 = st
     wl.Part1 = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
     wl.Parent = st
-
     task.wait()
-
     st.CFrame = sp
-
     for _, d in ipairs(char:GetDescendants()) do
         if d:IsA("BasePart") or d:IsA("Decal") then
             d.Transparency = 0.5
@@ -972,7 +1141,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
         hum.UseJumpPower = true
         hum.JumpPower = Config.JumpPower
     end
-    -- Reset invisible
     invisActive = false
     Config.Invisible = false
     invisCleanupSeat()
@@ -1296,22 +1464,14 @@ FarmTab:CreateSlider({
 FarmTab:CreateButton({
     Name = "Ver minhas moedas atuais",
     Callback = function()
-        Rayfield:Notify({
-            Title = "Moedas",
-            Content = "Voce tem: " .. getMyCoinCount(),
-            Duration = 4,
-        })
+        Rayfield:Notify({ Title = "Moedas", Content = "Voce tem: " .. getMyCoinCount(), Duration = 4 })
     end,
 })
 FarmTab:CreateButton({
     Name = "Debug: quantas moedas achou?",
     Callback = function()
         local coins = findCoins()
-        Rayfield:Notify({
-            Title = "Debug Farm",
-            Content = "Achei " .. #coins .. " moedas",
-            Duration = 5,
-        })
+        Rayfield:Notify({ Title = "Debug Farm", Content = "Achei " .. #coins .. " moedas", Duration = 5 })
     end,
 })
 FarmTab:CreateButton({
@@ -1407,6 +1567,62 @@ MoveTab:CreateSlider({
     Callback = function(v) Config.InvisibleY = v end,
 })
 
+-- PERFORMANCE
+local PerfTab = Window:CreateTab("Performance", 4483362458)
+
+PerfTab:CreateToggle({
+    Name = "Remover Neblina (No Fog)",
+    CurrentValue = false,
+    Callback = function(v) Config.Perf_NoFog = v end,
+})
+PerfTab:CreateToggle({
+    Name = "Remover Sombras (No Shadows)",
+    CurrentValue = false,
+    Callback = function(v) Config.Perf_NoShadow = v end,
+})
+PerfTab:CreateToggle({
+    Name = "Textura Lisa (SmoothPlastic)",
+    CurrentValue = false,
+    Callback = function(v) Config.Perf_SmoothTexture = v end,
+})
+PerfTab:CreateToggle({
+    Name = "Full Bright",
+    CurrentValue = false,
+    Callback = function(v) Config.Perf_FullBright = v end,
+})
+
+PerfTab:CreateButton({
+    Name = "Aplicar tudo (recomendado)",
+    Callback = function()
+        Config.Perf_NoFog = true
+        Config.Perf_NoShadow = true
+        Config.Perf_FullBright = true
+        Rayfield:Notify({
+            Title = "Performance",
+            Content = "Neblina, sombras e FullBright ativados!",
+            Duration = 4,
+        })
+    end,
+})
+
+PerfTab:CreateButton({
+    Name = "Resetar Performance",
+    Callback = function()
+        Config.Perf_NoFog = false
+        Config.Perf_NoShadow = false
+        Config.Perf_SmoothTexture = false
+        Config.Perf_FullBright = false
+        restoreLighting("bright")
+        restoreLighting("fog")
+        restoreLighting("shadow")
+        Rayfield:Notify({
+            Title = "Performance",
+            Content = "Tudo resetado ao normal.",
+            Duration = 4,
+        })
+    end,
+})
+
 -- Teleporte
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
@@ -1448,7 +1664,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
     local key = input.KeyCode
 
-    -- F = Fly
     if key == Enum.KeyCode.F then
         Config.Fly = not Config.Fly
         if not Config.Fly then
@@ -1461,7 +1676,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         Rayfield:Notify({Title = "Fly", Content = Config.Fly and "Ligado" or "Desligado", Duration = 2})
     end
 
-    -- N = Noclip
     if key == Enum.KeyCode.N then
         Config.Noclip = not Config.Noclip
         if not Config.Noclip then
@@ -1475,7 +1689,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         Rayfield:Notify({Title = "Noclip", Content = Config.Noclip and "Ligado" or "Desligado", Duration = 2})
     end
 
-    -- G = Grab Gun
     if key == Enum.KeyCode.G then
         task.spawn(function()
             local ok = grabGun()
@@ -1487,19 +1700,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         end)
     end
 
-    -- J = Infinite Jump
     if key == Enum.KeyCode.J then
         Config.InfiniteJump = not Config.InfiniteJump
         Rayfield:Notify({Title = "Infinite Jump", Content = Config.InfiniteJump and "Ligado" or "Desligado", Duration = 2})
     end
 
-    -- V = Anti Void
     if key == Enum.KeyCode.V then
         Config.AntiVoid = not Config.AntiVoid
         Rayfield:Notify({Title = "Anti Void", Content = Config.AntiVoid and "Ligado" or "Desligado", Duration = 2})
     end
 
-    -- I = Invisible
     if key == Enum.KeyCode.I then
         task.spawn(function()
             SeatInvisible.toggle()
