@@ -249,6 +249,17 @@ local function inAnyCharacter(obj)
     return false
 end
 
+-- NOVO: considera backpack também (arma equipada não deve contar como "no chão")
+local function isInPlayerInventory(obj)
+    for _, p in ipairs(Players:GetPlayers()) do
+        local char = p.Character
+        if char and obj:IsDescendantOf(char) then return true end
+        local bp = p:FindFirstChildOfClass("Backpack")
+        if bp and obj:IsDescendantOf(bp) then return true end
+    end
+    return false
+end
+
 local function hasLOS(from, to, targetChar)
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
@@ -304,71 +315,78 @@ local function attackWith(tool, targetChar)
     end)
 end
 
--- Finders
+-- Finders (CORRIGIDO)
+local function getToolHandle(tool)
+    if not tool then return nil end
+    if tool:IsA("Tool") then
+        return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
+    elseif tool:IsA("BasePart") then
+        return tool
+    elseif tool:IsA("Model") then
+        return tool.PrimaryPart or tool:FindFirstChildWhichIsA("BasePart")
+    end
+    return nil
+end
+
+local function isGunName(name)
+    local n = name:lower()
+    return n:find("gun") or n:find("revolver") or n:find("pistol") or n:find("weapon")
+end
+
 local function findGunOnGround()
     for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("Tool") then
-            local n = obj.Name:lower()
-            if n:find("gun") or n:find("revolver") or n:find("pistol") or n:find("weapon") then
-                if not inAnyCharacter(obj) then return obj end
-            end
+        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
+            return obj
         end
     end
-    for _, folderName in ipairs({"Guns","Items","Tools","Weapons","DroppedItems","Gun","Drops"}) do
+    for _, folderName in ipairs({"Guns","Items","Tools","Weapons","DroppedItems","Gun","Drops","Dropped"}) do
         local folder = workspace:FindFirstChild(folderName)
         if folder then
-            for _, obj in ipairs(folder:GetChildren()) do
-                if obj:IsA("Tool") then
-                    if not inAnyCharacter(obj) then
-                        local n = obj.Name:lower()
-                        if n:find("gun") or n:find("revolver") or n:find("pistol") or n:find("weapon") then
-                            return obj
-                        end
-                    end
+            for _, obj in ipairs(folder:GetDescendants()) do
+                if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
+                    return obj
                 end
             end
         end
     end
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Tool") then
-            local n = obj.Name:lower()
-            if n:find("gun") or n:find("revolver") or n:find("pistol") then
-                if not inAnyCharacter(obj) then return obj end
-            end
+        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
+            return obj
         end
     end
     return nil
 end
 
 local function findCoins()
-    local out = {}
-    local seen = {}
+    local out, seen = {}, {}
     local my = myPos()
     if not my then return out end
     local maxDsq = Config.ESP_CoinMaxDist * Config.ESP_CoinMaxDist
 
     local function add(obj)
         if seen[obj] then return end
-        if inAnyCharacter(obj) then return end
-        local d = obj.Position - my
-        if d.X*d.X + d.Y*d.Y + d.Z*d.Z > maxDsq then return end
+        if isInPlayerInventory(obj) then return end
+        local p = obj.Position
+        local dx, dy, dz = p.X - my.X, p.Y - my.Y, p.Z - my.Z
+        if dx*dx + dy*dy + dz*dz > maxDsq then return end
         seen[obj] = true
-        out[#out+1] = {obj = obj, pos = obj.Position}
+        out[#out+1] = {obj = obj, pos = p}
     end
 
-    local folder = workspace:FindFirstChild("Coins")
-    if folder then
-        for _, obj in ipairs(folder:GetChildren()) do
-            if obj:IsA("BasePart") or obj:IsA("MeshPart") then add(obj) end
-        end
-        return out
-    end
-
-    for _, name in ipairs({"Coin", "CoinFolder", "Money", "Rewards"}) do
+    for _, name in ipairs({"Coins","Coin","CoinFolder","Money","Rewards","Pickups","Drops"}) do
         local f = workspace:FindFirstChild(name)
         if f then
-            for _, obj in ipairs(f:GetChildren()) do
+            for _, obj in ipairs(f:GetDescendants()) do
                 if obj:IsA("BasePart") or obj:IsA("MeshPart") then add(obj) end
+            end
+        end
+    end
+
+    if #out == 0 then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if (obj:IsA("BasePart") or obj:IsA("MeshPart")) then
+                local n = obj.Name:lower()
+                if n:find("coin") or n:find("money") then add(obj) end
             end
         end
     end
@@ -489,51 +507,54 @@ local function updatePlayers()
     end
 end
 
--- ESP Gun
-local gunESP = nil
-local gunESPObj = nil
+-- ESP Gun (CORRIGIDO - suporta várias armas)
+local gunESPCache = {}
 
 local function updateGunESP()
     if not Config.ESP_Gun then
-        if gunESP then gunESP:Destroy() gunESP = nil gunESPObj = nil end
-        return
-    end
-    local gun = findGunOnGround()
-    if not gun then
-        if gunESP then gunESP:Destroy() gunESP = nil gunESPObj = nil end
-        return
-    end
-
-    local handle = gun
-    if gun:IsA("Tool") then
-        handle = gun:FindFirstChild("Handle") or gun:FindFirstChildWhichIsA("BasePart")
-    end
-    if not handle then
-        if gunESP then gunESP:Destroy() gunESP = nil gunESPObj = nil end
+        for _, hl in pairs(gunESPCache) do pcall(function() hl:Destroy() end) end
+        gunESPCache = {}
         return
     end
 
     local my = myPos()
-    if my then
-        local d = handle.Position - my
-        if d.X*d.X + d.Y*d.Y + d.Z*d.Z > Config.ESP_GunMaxDist * Config.ESP_GunMaxDist then
-            if gunESP then gunESP:Destroy() gunESP = nil gunESPObj = nil end
-            return
+    local active = {}
+    local maxDsq = Config.ESP_GunMaxDist * Config.ESP_GunMaxDist
+
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
+            local handle = getToolHandle(obj)
+            if handle then
+                local ok = true
+                if my then
+                    local d = handle.Position - my
+                    if d.X*d.X + d.Y*d.Y + d.Z*d.Z > maxDsq then ok = false end
+                end
+                if ok then
+                    active[handle] = true
+                    if not gunESPCache[handle] or not gunESPCache[handle].Parent then
+                        if gunESPCache[handle] then pcall(function() gunESPCache[handle]:Destroy() end) end
+                        local hl = Instance.new("Highlight")
+                        hl.Adornee = handle
+                        hl.FillColor = Color3.fromRGB(255, 255, 0)
+                        hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+                        hl.FillTransparency = 0.3
+                        hl.OutlineTransparency = 0
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = handle
+                        gunESPCache[handle] = hl
+                    end
+                end
+            end
         end
     end
 
-    if gunESPObj == gun and gunESP and gunESP.Parent then return end
-    if gunESP then gunESP:Destroy() gunESP = nil end
-    gunESPObj = gun
-
-    gunESP = Instance.new("Highlight")
-    gunESP.Adornee = handle
-    gunESP.FillColor = Color3.fromRGB(255, 255, 0)
-    gunESP.OutlineColor = Color3.fromRGB(255, 255, 0)
-    gunESP.FillTransparency = 0.3
-    gunESP.OutlineTransparency = 0
-    gunESP.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    gunESP.Parent = handle
+    for h, hl in pairs(gunESPCache) do
+        if not active[h] or not h.Parent then
+            pcall(function() hl:Destroy() end)
+            gunESPCache[h] = nil
+        end
+    end
 end
 
 -- ESP Coin
@@ -938,6 +959,7 @@ task.spawn(function()
     end
 end)
 
+-- Hitbox Expander (CORRIGIDO - sem mexer em CanCollide/Transparency)
 local hbSaved = setmetatable({}, {__mode = "k"})
 task.spawn(function()
     while task.wait(0.15) do
@@ -952,19 +974,17 @@ task.spawn(function()
                             local d = (my and hrp) and (hrp.Position - my).Magnitude or 0
                             if d <= Config.HitboxMaxDist then
                                 for _, part in ipairs(c:GetDescendants()) do
-                                    if part:IsA("BasePart") and (part.Name == "Head" or part.Name:find("Torso")) then
+                                    if part:IsA("BasePart") and (part.Name == "Head" or part.Name:find("Torso") or part.Name == "HumanoidRootPart") then
                                         if hbSaved[part] == nil then hbSaved[part] = part.Size end
                                         part.Size = Vector3.new(Config.HitboxSize, Config.HitboxSize, Config.HitboxSize)
-                                        part.CanCollide = false
-                                        part.Transparency = 0.5
+                                        part.Massless = true
                                     end
                                 end
                             else
                                 for _, part in ipairs(c:GetDescendants()) do
                                     if part:IsA("BasePart") and hbSaved[part] then
                                         part.Size = hbSaved[part]
-                                        part.CanCollide = true
-                                        part.Transparency = 0
+                                        part.Massless = false
                                         hbSaved[part] = nil
                                     end
                                 end
@@ -977,8 +997,7 @@ task.spawn(function()
             for part, size in pairs(hbSaved) do
                 if part and part.Parent then
                     part.Size = size
-                    part.CanCollide = true
-                    part.Transparency = 0
+                    part.Massless = false
                 end
             end
             hbSaved = setmetatable({}, {__mode = "k"})
@@ -1344,12 +1363,10 @@ task.spawn(function()
     end
 end)
 
--- Anti-Fling
-pcall(function()
-    PhysicsService:RegisterCollisionGroup("MM2_Self")
-    PhysicsService:RegisterCollisionGroup("MM2_Others")
-    PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false)
-end)
+-- Anti-Fling (CORRIGIDO - pcall individual)
+pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Self") end)
+pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Others") end)
+pcall(function() PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false) end)
 
 local function applySelf(part)
     if part:IsA("BasePart") and part.CollisionGroup ~= "MM2_Self" then
@@ -1455,9 +1472,10 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Invisible
+-- Invisible (CORRIGIDO - sem desync)
 local invisSeat = nil
 local invisOn = false
+local invisToggleUI = nil
 
 local function invisCleanup()
     local e = workspace:FindFirstChild("invischair")
@@ -1503,10 +1521,11 @@ local function invisOff()
     end
 end
 
-local function invisToggle()
-    invisOn = not invisOn
-    Config.Invisible = invisOn
-    if invisOn then invisOn_() else invisOff() end
+local function setInvisible(v)
+    if invisOn == v then return end
+    invisOn = v
+    Config.Invisible = v
+    if v then task.spawn(invisOn_) else invisOff() end
 end
 
 task.spawn(function()
@@ -1515,6 +1534,7 @@ task.spawn(function()
             invisOn = false
             Config.Invisible = false
             invisOff()
+            if invisToggleUI then pcall(function() invisToggleUI:Set(false) end) end
         end
     end
 end)
@@ -1530,6 +1550,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     invisOn = false
     Config.Invisible = false
     invisCleanup()
+    if invisToggleUI then pcall(function() invisToggleUI:Set(false) end) end
     if Config.AntiFling then
         task.wait(0.5)
         enableAntiFling()
@@ -1567,7 +1588,7 @@ local function mapCenter()
     return Vector3.new(0, 10, 0)
 end
 
--- Grab Gun (rapido)
+-- Grab Gun (CORRIGIDO)
 local grabbing = false
 local function grabGun()
     if grabbing then return false end
@@ -1583,46 +1604,56 @@ local function grabGun()
 
     local gun = findGunOnGround()
     if not gun then return false end
-
-    local handle
-    if gun:IsA("Tool") then
-        handle = gun:FindFirstChild("Handle") or gun:FindFirstChildWhichIsA("BasePart")
-    elseif gun:IsA("BasePart") then
-        handle = gun
-    elseif gun:IsA("Model") then
-        handle = gun.PrimaryPart or gun:FindFirstChildWhichIsA("BasePart")
-    end
+    local handle = getToolHandle(gun)
     if not handle then return false end
 
     grabbing = true
     local origCF = hrp.CFrame
     local origVel = hrp.Velocity
 
-    -- Teleporta direto em cima do handle
-    hrp.CFrame = CFrame.new(handle.Position + Vector3.new(0, 1, 0))
+    pcall(function() char:PivotTo(CFrame.new(handle.Position + Vector3.new(0, 2, 0))) end)
     hrp.Velocity = Vector3.zero
+    task.wait(0.08)
 
-    -- 3 fire touches em sequencia rapida (redundancia)
-    for i = 1, 3 do
-        pcall(function()
-            firetouchinterest(hrp, handle, 0)
-            firetouchinterest(hrp, handle, 1)
-        end)
-        task.wait(0.04)
+    if firetouchinterest then
+        local parts = {hrp}
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then table.insert(parts, p) end
+        end
+        for _, part in ipairs(parts) do
+            pcall(function()
+                firetouchinterest(part, handle, 0)
+                task.wait()
+                firetouchinterest(part, handle, 1)
+            end)
+        end
     end
 
-    -- ProximityPrompt/ClickDetector (fallback)
     local prompt = gun:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then pcall(function() fireproximityprompt(prompt) end) end
-    local cd = gun:FindFirstChildOfClass("ClickDetector")
-    if cd then pcall(function() fireclickdetector(cd) end) end
+    if not prompt then
+        for _, d in ipairs(gun:GetDescendants()) do
+            if d:IsA("ProximityPrompt") then prompt = d break end
+        end
+    end
+    if prompt and fireproximityprompt then
+        pcall(function() fireproximityprompt(prompt) end)
+    end
 
-    -- Volta instantaneo
+    local cd = gun:FindFirstChildOfClass("ClickDetector")
+    if not cd then
+        for _, d in ipairs(gun:GetDescendants()) do
+            if d:IsA("ClickDetector") then cd = d break end
+        end
+    end
+    if cd and fireclickdetector then
+        pcall(function() fireclickdetector(cd) end)
+    end
+
+    task.wait(0.1)
     if hrp.Parent then
         hrp.CFrame = origCF
         hrp.Velocity = origVel
     end
-
     grabbing = false
     return true
 end
@@ -1871,9 +1902,9 @@ PTab:CreateToggle({
         end
     end,
 })
-PTab:CreateToggle({
+invisToggleUI = PTab:CreateToggle({
     Name = "Invisible [I]", CurrentValue = false,
-    Callback = function(v) task.spawn(function() invisToggle() end) end,
+    Callback = function(v) setInvisible(v) end,
 })
 PTab:CreateSlider({Name = "Invisible Y", Range = {1000, 50000}, Increment = 100, CurrentValue = 5000, Callback = function(v) Config.InvisibleY = v end})
 
@@ -1887,6 +1918,7 @@ PfTab:CreateButton({
     Callback = function()
         Config.Perf_NoFog = true
         Config.Perf_NoShadow = true
+        Config.Perf_SmoothTexture = true
         Config.Perf_FullBright = true
     end,
 })
@@ -1993,10 +2025,9 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 
     if k == Enum.KeyCode.I then
-        task.spawn(function()
-            invisToggle()
-            Rayfield:Notify({Title = "Invisible", Content = Config.Invisible and "Ligado" or "Desligado", Duration = 2})
-        end)
+        setInvisible(not invisOn)
+        if invisToggleUI then pcall(function() invisToggleUI:Set(invisOn) end) end
+        Rayfield:Notify({Title = "Invisible", Content = invisOn and "Ligado" or "Desligado", Duration = 2})
     end
 end)
 
