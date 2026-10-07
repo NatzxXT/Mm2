@@ -1,5 +1,7 @@
 -- ============================================================
 --  MM2 CHECK HUB v3 - VERSÃO COMPATÍVEL (Xeno/Delta)
+--  ESP corrigido (funciona com arma guardada)
+--  Trigger Bot com FOV configurável
 -- ============================================================
 local okLoad, errLoad = pcall(function()
 
@@ -29,6 +31,7 @@ local Config = {
     TriggerBot = false,
     TriggerBot_TeamCheck = true,
     TriggerBot_Delay = 0.05,
+    TriggerBot_FOV = 40,
     AutoKill = false,
     AutoKill_Range = 15,
     AutoKill_GunRange = 500,
@@ -54,13 +57,32 @@ local Config = {
 }
 
 -- ============================================================
---  ROLE
+--  ROLE  (CORRIGIDO: checa Character + Backpack + Descendants)
 -- ============================================================
 local function getRole(player)
     local char = player.Character
     if not char then return "Innocent" end
+
+    -- 1) Checa no Character (equipado)
     if char:FindFirstChild("Knife") then return "Murderer" end
     if char:FindFirstChild("Gun") then return "Sheriff" end
+
+    -- 2) Checa no Backpack (guardado)
+    local backpack = player:FindFirstChildOfClass("Backpack")
+    if backpack then
+        if backpack:FindFirstChild("Knife") then return "Murderer" end
+        if backpack:FindFirstChild("Gun") then return "Sheriff" end
+    end
+
+    -- 3) Fallback: varre descendentes do Character por Tools com nome knife/gun
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("Tool") then
+            local n = obj.Name:lower()
+            if n:find("knife") then return "Murderer" end
+            if n:find("gun") then return "Sheriff" end
+        end
+    end
+
     return "Innocent"
 end
 
@@ -71,7 +93,7 @@ local function getRoleColor(role)
 end
 
 -- ============================================================
---  FOV
+--  FOV CIRCLE
 -- ============================================================
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "MM2_FOV"
@@ -270,7 +292,7 @@ local function updateGunESP()
 end
 
 -- ============================================================
---  AIMBOT / TRIGGER  (sem continue)
+--  AIMBOT / TRIGGER
 -- ============================================================
 local function isTargetValid(targetPlayer, useTeamCheck)
     local myRole = getRole(LocalPlayer)
@@ -321,14 +343,11 @@ local function handleTriggerBot()
             local tChar = player.Character
             if tChar and tChar:FindFirstChild("Head") then
                 if not Config.TriggerBot_TeamCheck or isTargetValid(player, true) then
-                    local sp, onScreen = Camera:WorldToScreenPoint(tChar.Head.Position)
-                    if onScreen then
-                        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                        if (Vector2.new(sp.X, sp.Y) - center).Magnitude <= 40 then
-                            pcall(function() tool:Activate() end)
-                            lastFire = now
-                            break
-                        end
+                    local inFov = isInFOV(tChar.Head.Position, Config.TriggerBot_FOV)
+                    if inFov then
+                        pcall(function() tool:Activate() end)
+                        lastFire = now
+                        break
                     end
                 end
             end
@@ -738,6 +757,7 @@ local Window = Rayfield:CreateWindow({
     Theme = "DarkBlue",
 })
 
+-- ---------- Visual ----------
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
     Name = "ESP Players",
@@ -761,6 +781,7 @@ VisualTab:CreateToggle({
     Callback = function(v) Config.ESP_Gun = v end,
 })
 
+-- ---------- Aimbot ----------
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 AimbotTab:CreateToggle({
     Name = "Aimbot por Role",
@@ -773,7 +794,7 @@ AimbotTab:CreateSlider({
     Callback = function(v) Config.Aimbot_Smoothness = v end,
 })
 AimbotTab:CreateSlider({
-    Name = "FOV",
+    Name = "FOV do Aimbot",
     Range = {30, 500}, Increment = 5, Suffix = " px",
     CurrentValue = 150,
     Callback = function(v) Config.Aimbot_FOV = v end,
@@ -794,11 +815,18 @@ AimbotTab:CreateToggle({
     Callback = function(v) Config.TriggerBot_TeamCheck = v end,
 })
 AimbotTab:CreateSlider({
+    Name = "Trigger Bot FOV",
+    Range = {10, 300}, Increment = 5, Suffix = " px",
+    CurrentValue = 40,
+    Callback = function(v) Config.TriggerBot_FOV = v end,
+})
+AimbotTab:CreateSlider({
     Name = "Trigger Delay",
     Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.05,
     Callback = function(v) Config.TriggerBot_Delay = v end,
 })
 
+-- ---------- Auto Kill ----------
 local AutoKillTab = Window:CreateTab("Auto Kill", 4483362458)
 AutoKillTab:CreateToggle({
     Name = "Auto Kill",
@@ -834,6 +862,7 @@ AutoKillTab:CreateToggle({
     Callback = function(v) Config.AutoKill_AutoEquip = v end,
 })
 
+-- ---------- Gun ----------
 local GunTab = Window:CreateTab("Gun", 4483362458)
 GunTab:CreateButton({
     Name = "Grab Gun (manual)",
@@ -852,6 +881,7 @@ GunTab:CreateToggle({
     Callback = function(v) Config.AutoGrabGun = v end,
 })
 
+-- ---------- Movimento ----------
 local MoveTab = Window:CreateTab("Movimento", 4483362458)
 MoveTab:CreateSlider({
     Name = "Speed",
@@ -922,6 +952,7 @@ MoveTab:CreateToggle({
     end,
 })
 
+-- ---------- Teleporte ----------
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
     Name = "Teleport to Obby",
@@ -943,6 +974,7 @@ TpTab:CreateButton({
     end,
 })
 
+-- ---------- Protecao ----------
 local ProtTab = Window:CreateTab("Protecao", 4483362458)
 ProtTab:CreateToggle({
     Name = "Anti-Fling",
