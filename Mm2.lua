@@ -1,15 +1,13 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - FINAL OTIMIZADO
---  Detecção MM2 • ESP • Aimbot • Trigger • AutoKill • Farm
---  GrabGun • Invisible • Anti-Fling • Performance
+--  MM2 CHECK HUB v3 - FINAL COMPLETO
+--  Detecção • ESP • Aimbot • Trigger • AutoKill • Farm
+--  GrabGun • Invisible • Anti-Fling • Performance • Extras
 -- ============================================================
 
 -- ============================================================
 --  VERIFICAÇÃO DE JOGO (só funciona no MM2)
 -- ============================================================
-local MM2_PLACE_IDS = {
-    142823291, 1990777535, 321010323,
-}
+local MM2_PLACE_IDS = { 142823291, 1990777535, 321010323 }
 
 local function isMM2()
     for _, id in ipairs(MM2_PLACE_IDS) do
@@ -192,6 +190,10 @@ local Config = {
     Perf_NoShadow = false,
     Perf_SmoothTexture = false,
     Perf_FullBright = false,
+    AntiKick = false,
+    AntiRagdoll = false,
+    KillNotifier = false,
+    AutoDodge = false,
 }
 
 -- ============================================================
@@ -820,6 +822,175 @@ end)
 task.spawn(function()
     while task.wait(1) do pcall(updateGunESP) end
 end)
+
+-- ============================================================
+--  EXTRAS
+-- ============================================================
+-- ANTI-KICK
+pcall(function()
+    local StarterGui = game:GetService("StarterGui")
+    if hookfunction then
+        local oldSetCore = StarterGui.SetCore
+        hookfunction(oldSetCore, function(self, ...)
+            local args = {...}
+            if args[1] == "SendNotification" then
+                return oldSetCore(self, ...)
+            end
+            if Config.AntiKick then return end
+            return oldSetCore(self, ...)
+        end)
+    end
+end)
+
+-- ANTI-RAGDOLL
+task.spawn(function()
+    while task.wait(0.15) do
+        if Config.AntiRagdoll then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        local state = hum:GetState()
+                        if state == Enum.HumanoidStateType.FallingDown
+                           or state == Enum.HumanoidStateType.Ragdoll
+                           or state == Enum.HumanoidStateType.Physics then
+                            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                            hum.PlatformStand = false
+                            local hrp = char:FindFirstChild("HumanoidRootPart")
+                            if hrp then hrp.AssemblyAngularVelocity = Vector3.zero end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- KILL NOTIFIER
+local killHealthTrack = {}
+task.spawn(function()
+    while task.wait(0.5) do
+        if Config.KillNotifier then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local char = player.Character
+                    if char then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            local last = killHealthTrack[player]
+                            if last and last > 0 and hum.Health <= 0 then
+                                local role = getRole(player)
+                                pcall(function()
+                                    Rayfield:Notify({
+                                        Title = "💀 Kill Notifier",
+                                        Content = player.Name .. " (" .. role .. ") morreu!",
+                                        Duration = 4,
+                                    })
+                                end)
+                            end
+                            killHealthTrack[player] = hum.Health
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- AUTO DODGE
+task.spawn(function()
+    while task.wait(0.25) do
+        if Config.AutoDodge then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum or hum.Health <= 0 then return end
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and getRole(player) == "Murderer" then
+                        local tChar = player.Character
+                        if tChar then
+                            local tHrp = tChar:FindFirstChild("HumanoidRootPart")
+                            if tHrp then
+                                local diff = hrp.Position - tHrp.Position
+                                local dist = diff.Magnitude
+                                if dist < 18 and dist > 1 then
+                                    local dir = diff.Unit
+                                    hrp.Velocity = dir * 90 + Vector3.new(0, 35, 0)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- KILL ALL
+local function killAll()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local knife = findTool(char, "knife")
+    if not knife then
+        Rayfield:Notify({ Title = "Kill All", Content = "Precisa estar de Murderer com faca!", Duration = 3 })
+        return
+    end
+    task.spawn(function()
+        local myHrp = char:FindFirstChild("HumanoidRootPart")
+        if not myHrp then return end
+        local originalCF = myHrp.CFrame
+        local count = 0
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                local tChar = player.Character
+                if tChar then
+                    local tHrp = tChar:FindFirstChild("HumanoidRootPart")
+                    local hum = tChar:FindFirstChildOfClass("Humanoid")
+                    if tHrp and hum and hum.Health > 0 then
+                        myHrp.CFrame = tHrp.CFrame
+                        task.wait(0.12)
+                        pcall(function() knife:Activate() end)
+                        task.wait(0.18)
+                        count = count + 1
+                    end
+                end
+            end
+        end
+        myHrp.CFrame = originalCF
+        Rayfield:Notify({ Title = "Kill All", Content = "Tentei matar " .. count .. " players", Duration = 4 })
+    end)
+end
+
+-- TP TO ROLE
+local function teleportToRole(roleName)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and getRole(player) == roleName then
+            local char = player.Character
+            if char then
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local myChar = LocalPlayer.Character
+                    if myChar then
+                        local myHrp = myChar:FindFirstChild("HumanoidRootPart")
+                        if myHrp then
+                            myHrp.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 3, 0))
+                            Rayfield:Notify({
+                                Title = "Teleporte",
+                                Content = "Fui para " .. player.Name .. " (" .. roleName .. ")",
+                                Duration = 3,
+                            })
+                            return
+                        end
+                    end
+                end
+            end
+        end
+    end
+    Rayfield:Notify({ Title = "Teleporte", Content = roleName .. " nao encontrado", Duration = 3 })
+end
 
 -- ============================================================
 --  PERFORMANCE (OTIMIZADO)
@@ -1553,6 +1724,10 @@ AutoKillTab:CreateSlider({ Name = "Alcance Tiro", Range = {50, 1000}, Increment 
 AutoKillTab:CreateSlider({ Name = "Delay", Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s", CurrentValue = 0.35, Callback = function(v) Config.AutoKill_Delay = v end })
 AutoKillTab:CreateToggle({ Name = "Wall Check", CurrentValue = true, Callback = function(v) Config.AutoKill_WallCheck = v end })
 AutoKillTab:CreateToggle({ Name = "Auto Equip", CurrentValue = true, Callback = function(v) Config.AutoKill_AutoEquip = v end })
+AutoKillTab:CreateButton({
+    Name = "⚔️ Kill All (Murderer)",
+    Callback = function() killAll() end,
+})
 
 -- Gun
 local GunTab = Window:CreateTab("Gun", 4483362458)
@@ -1701,6 +1876,29 @@ PerfTab:CreateButton({
     end,
 })
 
+-- Extras
+local ExtrasTab = Window:CreateTab("Extras", 4483362458)
+ExtrasTab:CreateToggle({
+    Name = "Anti-Kick (bloqueia SetCore)",
+    CurrentValue = false,
+    Callback = function(v) Config.AntiKick = v end,
+})
+ExtrasTab:CreateToggle({
+    Name = "Anti-Ragdoll (levanta automatico)",
+    CurrentValue = false,
+    Callback = function(v) Config.AntiRagdoll = v end,
+})
+ExtrasTab:CreateToggle({
+    Name = "Kill Notifier (avisar mortes)",
+    CurrentValue = false,
+    Callback = function(v) Config.KillNotifier = v end,
+})
+ExtrasTab:CreateToggle({
+    Name = "Auto Dodge (desvia do Murderer)",
+    CurrentValue = false,
+    Callback = function(v) Config.AutoDodge = v end,
+})
+
 -- Teleporte
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
@@ -1721,6 +1919,14 @@ TpTab:CreateButton({
         teleportTo(findMapCenter())
         Rayfield:Notify({Title = "Teleporte", Content = "Indo para o centro...", Duration = 3})
     end,
+})
+TpTab:CreateButton({
+    Name = "🔪 Teleport to Murderer",
+    Callback = function() teleportToRole("Murderer") end,
+})
+TpTab:CreateButton({
+    Name = "🔫 Teleport to Sheriff",
+    Callback = function() teleportToRole("Sheriff") end,
 })
 
 -- Protecao
