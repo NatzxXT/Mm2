@@ -2480,3 +2480,1067 @@ local function JWXW_routine() -- StarterGui.YARHM.Universal
 	repeat task.wait() until getgenv().Modules
 	getgenv().Modules[1] = module
 end
+
+local function BPADER_routine() -- StarterGui.YARHM.Init
+    local script = Instance.new("LocalScript")
+    script.Name = "Init"
+    script.Parent = Converted["_YARHM"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	getgenv().Modules = {}
+	
+	local ts = game:GetService("TweenService")
+	
+	getgenv().YARHM = script.Parent
+	getgenv().ThemeManager = require(script.Parent.Theme)
+	local COREGUI = game:GetService("CoreGui")
+	function randomString()
+		local length = math.random(10,20)
+		local array = {}
+		for i = 1, length do
+			array[i] = string.char(math.random(32, 126))
+		end
+		return table.concat(array)
+	end
+	local s, e = pcall(function()
+		if get_hidden_gui or gethui then
+			local hiddenUI = get_hidden_gui or gethui
+			script.Parent.Name = randomString()
+			script.Parent.Parent = hiddenUI()
+		elseif (not is_sirhurt_closure) and (syn and syn.protect_gui) then
+			script.Parent.Name = randomString()
+			syn.protect_gui(script.Parent)
+			script.Parent.Parent = COREGUI
+		elseif COREGUI:FindFirstChild('RobloxGui') then
+			script.Parent.Parent = COREGUI.RobloxGui
+		end
+	end)
+	
+	local func = require(script.Parent.FUNCTIONS)
+	getgenv().YARHM_FUNCTIONS = func
+	
+	if not s then
+		warn(e)	
+	end
+	
+	local getExeName = identifyexecutor or getexecutorname or function() return "Yet Another Roblox Executor v1.2" end
+	
+	script.Parent.SafeAreaCompatibility = Enum.SafeAreaCompatibility.None
+	script.Parent.ScreenInsets = Enum.ScreenInsets.None
+	script.Parent.ResetOnSpawn = false
+	
+	script.Parent.Menu.Position = UDim2.fromScale(0.5, -0.6)
+	
+	script.Parent.Dialog.Size = UDim2.fromOffset(0, 147)
+	script.Parent.Dialog.UIScale.Scale = 0
+	
+	script.Parent.Dialog.Visible = true
+	
+	script.Parent.Menu.CanvasGroup.Visible = true
+	script.Parent.Menu.CanvasGroup.GroupTransparency = 0
+	
+	if not game:IsLoaded() then
+		game.Loaded:Wait()
+	end
+	
+	script.Parent.Menu.HubName.Text = script.Parent.Menu.HubName.Text .. `<font transparency="0.8" size="5">{func.__v}</font>`
+	
+	ts:Create(script.Parent.Menu, TweenInfo.new(1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+		{Position = UDim2.fromScale(0.5, 0.05)}
+	):Play()
+	
+	task.wait(1)
+	ts:Create(script.Parent.Menu.CanvasGroup, TweenInfo.new(0.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), 
+		{GroupTransparency = 1}
+	):Play()
+	func.refreshlist()
+	task.wait(0.5)
+	script.Parent.Menu.CanvasGroup.Visible = false
+	script.Parent.Menu.CanvasGroup.TextLabel.Visible = false
+	script.Parent.Menu.CanvasGroup.ImageLabel.Visible = true
+	script.Parent.Menu.CanvasGroup.Interactable = true
+	
+	script.Parent.Menu.CloseArea.AllowForSpring:Fire()
+	task.wait(1)
+	func.loadFloatingButtons()
+end
+
+local function XEEC_routine() -- StarterGui.YARHM.Murder Mystery 2
+    local script = Instance.new("LocalScript")
+    script.Name = "Murder Mystery 2"
+    script.Parent = Converted["_YARHM"]
+    local req = require
+    local require = function(obj)
+        local routine = routine_module_scripts[obj]
+        if routine then
+            return routine()
+        end
+        return req(obj)
+    end
+
+    -- © Aetherion 2026
+
+	local module = {}
+	module["gameId"] = 0
+	
+	local fu = require(getgenv().YARHM.FUNCTIONS)
+	local espindc = require(script.Parent.ESPIndicator)
+	
+	local espcontainer = espindc.new({ArrowEdgePadding = 50, ArrowShowDistanceText = false,})
+	
+	local playerESP = false
+	local sheriffAimbot = false
+	local coinAutoCollect = false
+	local autoShooting = false
+	local shootOffset = 2.8
+	local offsetToPingMult = 1
+	
+	local predictionAIEngine = false
+	local predictionOngoing = false
+	
+	local predictionCooldown = false
+	
+	local gunDropTakeExp = false
+	
+	local gunDropESP
+	
+	local trapDetection = false
+	
+	local autoGetDroppedGun = false
+	local simulateKnifeThrow = false
+	
+	local localplayer = game:GetService("Players").LocalPlayer
+	
+	local playerData = {}
+	
+	local phs = game:GetService("PathfindingService")
+	local ts = game:GetService("TweenService")
+	local rs = game:GetService("RunService")
+	
+	local claimedCoins = {}
+	
+	local function findMurderer()
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if i.Backpack:FindFirstChild("Knife") then
+				return i
+			end
+		end
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if not i.Character then continue end
+			if i.Character:FindFirstChild("Knife") then
+				return i
+			end
+		end
+		if playerData then
+			for player, data in playerData do
+				if data.Role == "Murderer" then
+					if game.Players:FindFirstChild(player) then
+						return game.Players:FindFirstChild(player)
+					end
+				end
+			end
+		end
+		return nil
+	end
+	
+	local function findSheriff()
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if i.Backpack:FindFirstChild("Gun") then
+				return i
+			end
+		end
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if not i.Character then continue end
+			if i.Character:FindFirstChild("Gun") then
+				return i
+			end
+		end
+		if playerData then
+			for player, data in playerData do
+				if data.Role == "Sheriff" then
+					if game.Players:FindFirstChild(player) then
+						return game.Players:FindFirstChild(player)
+					end
+				end
+			end
+		end
+		return nil
+	end
+	
+	local function findSheriffThatsNotMe()
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if i == localplayer then continue end
+			if i.Backpack:FindFirstChild("Gun") then
+				return i
+			end
+		end
+		for _, i in ipairs(game.Players:GetPlayers()) do
+			if i == localplayer then continue end
+			if not i.Character then continue end
+			if i.Character:FindFirstChild("Gun") then
+				return i
+			end
+		end
+		if playerData then
+			for player, data in playerData do
+				if data.Role == "Sheriff" then
+					if game.Players:FindFirstChild(player) then
+						if game.Players:FindFirstChild(player) == localplayer then continue end
+						return game.Players:FindFirstChild(player)
+					end
+				end
+			end
+		end
+		return nil
+	end
+	
+	local hideMeEsp = false
+	function reloadESP()
+		if not playerESP then return end
+		espcontainer:RemoveGroup("players")
+		local listplayers = game.Players:GetChildren()
+		for _, player in ipairs(listplayers) do
+			if player == localplayer and hideMeEsp then continue end
+			if player.Character ~= nil then
+				local character = player.Character
+				if true then
+					task.spawn(function()
+						if player == findMurderer() then
+							espcontainer:Add(character, {
+								AccentColor = Color3.new(1, 0, 0.0156863),
+								ArrowShow = true,
+								ArrowMinDistance = 999999,
+								ArrowSize = UDim2.new(0,40,0,40),
+								LabelText = "Murderer",
+								ShowLabel = true,
+								GroupName = "players"
+							})
+						elseif player == findSheriff() then
+							espcontainer:Add(character, {
+								AccentColor = Color3.new(0, 0.6, 1),
+								ArrowShow = false,
+								ShowLabel = false,
+								GroupName = "players"
+							})
+						else
+							espcontainer:Add(character, {
+								AccentColor = Color3.new(0, 1, 0.0313725),
+								ArrowShow = false,
+								ShowLabel = false,
+								GroupName = "players"
+							})
+						end
+					end)
+				end
+			end
+		end
+	end
+	
+	if not game.ReplicatedStorage:WaitForChild("Remotes", 5) then
+		fu.dialog("Not MM2", "Looks like this game isn't MM2. Do you want to load the module anyway?", {"Load", "No"})
+		if fu.waitfordialog() == "No" then
+			fu.closedialog()
+			fu.notification("MM2 will not be loaded until you rejoin.", Color3.fromRGB(255, 0, 0), "x")
+			return
+		end	
+		fu.closedialog()
+	else
+		game.ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Gameplay"):WaitForChild("PlayerDataChanged", 5).OnClientEvent:Connect(function(data)
+			playerData = data
+			if playerESP then
+				reloadESP()
+			end
+		end)
+	end
+	
+	local onTesting = game.GameId == 119460199
+	
+	local Players = game:GetService("Players")
+	local playerToExamineIsSpamJumping = false
+	
+	local function findNearestPlayer()
+		local Players = game:GetService("Players")
+		local localPlayer = Players.LocalPlayer
+		local nearestPlayer = nil
+		local shortestDistance = math.huge
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player ~= localPlayer and player.Character then 
+				local localRootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+				local otherRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+				if localRootPart and otherRootPart then
+					local distance = (localRootPart.Position - otherRootPart.Position).Magnitude
+					if distance < shortestDistance then
+						shortestDistance = distance
+						nearestPlayer = player
+					end
+				end
+			end
+		end
+		return nearestPlayer
+	end
+	
+	function miniFling(playerToFling)
+		local a=game.Players.LocalPlayer;local b=a:GetMouse()local c={playerToFling}local d=game:GetService("Players")local e=d.LocalPlayer;local f=false;local g=function(h)local i=e.Character;local j=i and i:FindFirstChildOfClass("Humanoid")local k=j and j.RootPart;local l=h.Character;local m;local n;local o;local p;local q;if l:FindFirstChildOfClass("Humanoid")then m=l:FindFirstChildOfClass("Humanoid")end;if m and m.RootPart then n=m.RootPart end;if l:FindFirstChild("Head")then o=l.Head end;if l:FindFirstChildOfClass("Accessory")then p=l:FindFirstChildOfClass("Accessory")end;if p and p:FindFirstChild("Handle")then q=p.Handle end;if i and j and k then if k.Velocity.Magnitude<50 then getgenv().OldPos=k.CFrame end;if m and m.Sit and not f then end;if o then if o.Velocity.Magnitude>500 then fu.dialog("Player flung","Player is already flung. Fling again?",{"Fling again","No"})if fu.waitfordialog()=="No"then return fu.closedialog()end;fu.closedialog()end elseif not o and q then if q.Velocity.Magnitude>500 then fu.dialog("Player flung","Player is already flung. Fling again?",{"Fling again","No"})if fu.waitfordialog()=="No"then return fu.closedialog()end;fu.closedialog()end end;if o then workspace.CurrentCamera.CameraSubject=o elseif not o and q then workspace.CurrentCamera.CameraSubject=q elseif m and n then workspace.CurrentCamera.CameraSubject=m end;if not l:FindFirstChildWhichIsA("BasePart")then return end;local r=function(s,t,u)k.CFrame=CFrame.new(s.Position)*t*u;i:SetPrimaryPartCFrame(CFrame.new(s.Position)*t*u)k.Velocity=Vector3.new(9e7,9e7*10,9e7)k.RotVelocity=Vector3.new(9e8,9e8,9e8)end;local v=function(s)local w=2;local x=tick()local y=0;repeat if k and m then if s.Velocity.Magnitude<50 then y=y+100;r(s,CFrame.new(0,1.5,0)+m.MoveDirection*s.Velocity.Magnitude/1.25,CFrame.Angles(math.rad(y),0,0))task.wait()r(s,CFrame.new(0,-1.5,0)+m.MoveDirection*s.Velocity.Magnitude/1.25,CFrame.Angles(math.rad(y),0,0))task.wait()r(s,CFrame.new(2.25,1.5,-2.25)+m.MoveDirection*s.Velocity.Magnitude/1.25,CFrame.Angles(math.rad(y),0,0))task.wait()r(s,CFrame.new(-2.25,-1.5,2.25)+m.MoveDirection*s.Velocity.Magnitude/1.25,CFrame.Angles(math.rad(y),0,0))task.wait()r(s,CFrame.new(0,1.5,0)+m.MoveDirection,CFrame.Angles(math.rad(y),0,0))task.wait()r(s,CFrame.new(0,-1.5,0)+m.MoveDirection,CFrame.Angles(math.rad(y),0,0))task.wait()else r(s,CFrame.new(0,1.5,m.WalkSpeed),CFrame.Angles(math.rad(90),0,0))task.wait()r(s,CFrame.new(0,-1.5,-m.WalkSpeed),CFrame.Angles(0,0,0))task.wait()r(s,CFrame.new(0,1.5,m.WalkSpeed),CFrame.Angles(math.rad(90),0,0))task.wait()r(s,CFrame.new(0,1.5,n.Velocity.Magnitude/1.25),CFrame.Angles(math.rad(90),0,0))task.wait()r(s,CFrame.new(0,-1.5,-n.Velocity.Magnitude/1.25),CFrame.Angles(0,0,0))task.wait()r(s,CFrame.new(0,1.5,n.Velocity.Magnitude/1.25),CFrame.Angles(math.rad(90),0,0))task.wait()r(s,CFrame.new(0,-1.5,0),CFrame.Angles(math.rad(90),0,0))task.wait()r(s,CFrame.new(0,-1.5,0),CFrame.Angles(0,0,0))task.wait()r(s,CFrame.new(0,-1.5,0),CFrame.Angles(math.rad(-90),0,0))task.wait()r(s,CFrame.new(0,-1.5,0),CFrame.Angles(0,0,0))task.wait()end else break end until s.Velocity.Magnitude>500 or s.Parent~=h.Character or h.Parent~=d or h.Character~=l or m.Sit or j.Health<=0 or tick()>x+w end;workspace.FallenPartsDestroyHeight=0/0;local z=Instance.new("BodyVelocity")z.Name="EpixVel"z.Parent=k;z.Velocity=Vector3.new(9e8,9e8,9e8)z.MaxForce=Vector3.new(1/0,1/0,1/0)j:SetStateEnabled(Enum.HumanoidStateType.Seated,false)if n and o then if(n.CFrame.p-o.CFrame.p).Magnitude>5 then v(o)else v(n)end elseif n and not o then v(n)elseif not n and o then v(o)elseif not n and not o and p and q then v(q)else fu.notification("Can't find a proper part of target player to fling.")end;z:Destroy()j:SetStateEnabled(Enum.HumanoidStateType.Seated,true);repeat k.CFrame=getgenv().OldPos*CFrame.new(0,.5,0)i:SetPrimaryPartCFrame(getgenv().OldPos*CFrame.new(0,.5,0))j:ChangeState("GettingUp")table.foreach(i:GetChildren(),function(A,B)if B:IsA("BasePart")then B.Velocity,B.RotVelocity=Vector3.new(),Vector3.new()end end)task.wait()until(k.Position-getgenv().OldPos.p).Magnitude<25;workspace.FallenPartsDestroyHeight=getgenv().FPDH else fu.notification("No valid character of said target player. May have died.")end end;g(c[1])
+	end
+	
+	function getMap()
+		for _, o in ipairs(workspace:GetChildren()) do
+			if o:FindFirstChild("CoinContainer") and o:FindFirstChild("Spawns") then
+				return o
+			end
+		end
+		return nil
+	end
+	
+	module["Name"] = "Murder Mystery 2"
+	
+	workspace.ChildAdded:Connect(function(ch)
+		if ch == getMap() and playerESP then
+			fu.notification("Map has loaded, waiting for roles...")
+			repeat
+				task.wait(1)
+			until findMurderer()
+			fu.notification("Player ESP reloaded.")
+		end
+	end)
+	
+	workspace.ChildRemoved:Connect(function(ch)
+		if ch == getMap() and playerESP then
+			fu.notification("Game ended, removing Player ESPs.")
+			playerData = {}
+			espcontainer:ClearAllGroups()
+		end
+	end)
+	
+	workspace.DescendantAdded:Connect(function(ch)
+		if trapDetection and ch.Name == "Trap" and (ch.Parent:IsA("Folder") or ch.Parent:IsA("Model")) then
+			ch.Transparency = 0
+			espcontainer:Add(ch, {
+				AccentColor = Color3.new(1, 0, 0.0156863),
+				ArrowShow = false,
+				ShowLabel = true,
+				LabelText = "Trap",
+				GroupName = "trap"
+			})
+			fu.notification("Murderer has placed a trap!")
+		end
+		if gunDropESP and ch.Name == "GunDrop" then
+			espcontainer:Add(ch, {
+				AccentColor = Color3.new(0.952941, 1, 0.0745098),
+				ArrowShow = true,
+				ArrowMinDistance = 999999,
+				ArrowSize = UDim2.new(0,40,0,40),
+				LabelText = "Dropped gun!",
+				ShowLabel = true,
+				GroupName = "gun"
+			})
+			fu.notification("Gun has been dropped! Find a yellow highlight.")
+			if autoGetDroppedGun then
+				fu.notification("Auto get dropped gun - Cooling down...")
+				task.wait(1)
+				if gunDropTakeExp then
+					local character = localplayer.Character or localplayer.CharacterAdded:Wait()
+					local rootPart = character:FindFirstChild("HumanoidRootPart")
+					local gunDrop = getMap():FindFirstChild("GunDrop")
+					if gunDrop and rootPart then
+						local touchPart = gunDrop:FindFirstChild("Handle") or gunDrop
+						gunDrop:PivotTo(rootPart.CFrame)
+						firetouchinterest(rootPart, touchPart, 0)
+						task.wait()
+						firetouchinterest(rootPart, touchPart, 1)
+					end
+					return
+				end
+				if not getMap():FindFirstChild("GunDrop") then fu.notification("No dropped gun to be teleported to.") return end
+				local previousPosition = localplayer.Character:GetPivot()
+				localplayer.Character:MoveTo(getMap():FindFirstChild("GunDrop").Position)
+				localplayer.Backpack.ChildAdded:Wait()
+				localplayer.Character:PivotTo(previousPosition)
+			end
+		end
+	end)
+	
+	workspace.DescendantRemoving:Connect(function(ch)
+		if gunDropESP and ch.Name == "GunDrop" then
+			espcontainer:RemoveGroup("gun")
+			fu.notification("Someone has took the dropped gun.")
+			task.wait(1)
+			fu.notification("The hero is " .. findSheriff().DisplayName .. ".")
+			reloadESP()
+		end
+	end)
+	
+	function getClosestModelToPlayer(player, models)
+		local closestModel = nil
+		local closestDistance = math.huge 
+		local playerPosition = player.Character.HumanoidRootPart.Position
+		for _, model in ipairs(models) do
+			local modelPosition = model:GetPivot().Position
+			local distance = (modelPosition - playerPosition).Magnitude
+			if distance < closestDistance then
+				closestDistance = distance
+				closestModel = model
+			end
+		end
+		local returningResult = {closestModel, closestDistance}
+		setmetatable(returningResult, {
+			__tostring = function(t) return closestModel end,
+		})
+		return returningResult
+	end
+	
+	task.spawn(
+		function()
+			while task.wait(0.1) do
+				if not coinAutoCollect then continue end
+				if getMap() then
+					if getMap():FindFirstChild("CoinContainer") and #getMap():FindFirstChild("CoinContainer"):GetChildren() > 1 then
+						local closestCoin = getClosestModelToPlayer(localplayer, getMap():FindFirstChild("CoinContainer"):GetChildren())
+						if closestCoin then
+							if not localplayer.Character:FindFirstChild("HumanoidRootPart") then continue end
+							local distance = (localplayer.Character:FindFirstChild("HumanoidRootPart").Position - closestCoin:GetPivot().Position).Magnitude
+							local toclosestcoin = ts:Create(localplayer.Character:FindFirstChild("HumanoidRootPart"), TweenInfo.new(distance*0.05, Enum.EasingStyle.Linear), {
+								CFrame = closestCoin:GetPivot()
+							})
+							toclosestcoin:Play()
+							toclosestcoin.Completed:Wait()
+							task.wait(0.1)
+							closestCoin:Destroy()
+							claimedCoins[closestCoin] = true
+						end
+					end
+				end
+			end
+		end
+	)
+	
+	local function getPredictedPosition(player, shootOffset)
+		local usingBasicPred = not predictionAIEngine
+		if predictionOngoing then
+			fu.notification("Cancelling AI prediction, using basic prediction.")
+			usingBasicPred = true
+		end
+		local ogplayer = player
+		pcall(function()
+			player = player.Character
+			if not player.Character then fu.notification("No murderer to predict position.") return end
+		end)
+		local playerHRP = player:FindFirstChild("UpperTorso")
+		local playerHum = player:FindFirstChild("Humanoid")
+		if not playerHRP or not playerHum then
+			return Vector3.new(0,0,0), "Could not find the player's HumanoidRootPart."
+		end
+		local playerPosition = playerHRP.Position
+		if predictionAIEngine and not usingBasicPred and not predictionCooldown and getgenv().YARHMNetwork_predictPos then
+			if (playerPosition - localplayer.Character:FindFirstChild("UpperTorso").Position).Magnitude > 20 then
+				fu.notification("Calculating trajectory...")
+				predictionCooldown = true
+				predictionOngoing = true
+				local predictedPosition = getgenv().YARHMNetwork_predictPos(ogplayer)
+				predictionOngoing = false
+				task.spawn(function()
+					task.wait(5)
+					predictionCooldown = false
+				end)
+				return predictedPosition
+			else
+				fu.notification("Murderer is too close for trajectory prediction. Reverting to basic prediction.")
+			end
+		elseif predictionAIEngine and not getgenv().YARHMNetwork.predictPos then
+			fu.notification("YARHM AI Engine is not available. Reverting to basic prediction.")	
+		end
+		local velocity = Vector3.new()
+		velocity = playerHRP.AssemblyLinearVelocity
+		local playerMoveDirection = playerHum.MoveDirection
+		local playerLookVec = playerHRP.CFrame.LookVector
+		local yVelFactor = velocity.Y > 0 and -1 or 0.5
+		local predictedPosition
+		predictedPosition = playerHRP.Position + ((velocity * Vector3.new(0.75, 0.5, 0.75))) * (shootOffset / 15) +playerMoveDirection * shootOffset
+		predictedPosition = predictedPosition * (((localplayer:GetNetworkPing() * 1000) * ((offsetToPingMult - 1) * 0.01)) + 1)
+		return predictedPosition
+	end
+	
+	task.spawn(function()
+		while task.wait(1) do
+			if findSheriff() == localplayer and autoShooting then
+				fu.notification("Auto-shooting started.")
+				repeat
+					task.wait(0.1)
+					local murderer = findMurderer()
+					if not murderer then fu.notification("No murderer.") continue end
+					local murdererPosition = murderer.Character.HumanoidRootPart.Position
+					local characterRootPart = localplayer.Character.HumanoidRootPart
+					local rayDirection = murdererPosition - characterRootPart.Position
+					local raycastParams = RaycastParams.new()
+					raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+					raycastParams.FilterDescendantsInstances = {localplayer.Character}
+					local hit = workspace:Raycast(characterRootPart.Position, rayDirection, raycastParams)
+					if not hit or hit.Instance.Parent == murderer.Character then
+						fu.notification("Auto-shooting!")
+						if not localplayer.Character:FindFirstChild("Gun") then
+							local hum = localplayer.Character:FindFirstChild("Humanoid")
+							if localplayer.Backpack:FindFirstChild("Gun") then
+								localplayer.Character:FindFirstChild("Humanoid"):EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+							else
+								fu.notification("You don't have the gun..?")
+								return
+							end
+						end
+						local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+						if not murdererHRP then
+							fu.notification("Could not find the murderer's HumanoidRootPart.")
+							return
+						end
+						local predictedPosition = getPredictedPosition(murderer, shootOffset)
+						local args = {
+							[1] = 1,
+							[2] = predictedPosition,
+							[3] = "AH2"
+						}
+						localplayer.Character.Gun.KnifeLocal.CreateBeam.RemoteFunction:InvokeServer(unpack(args))
+					end
+				until findSheriff() ~= localplayer or not autoShooting
+			end
+		end
+	end)
+	
+	table.insert(module, { Type = "Text", Args = {"ESPs"} })
+	
+	table.insert(module, {
+		Type = "ButtonGrid",
+		Toggleable = true,
+		Args = {2, {
+			Players = function()
+				if playerESP then
+					playerESP = false
+					espcontainer:RemoveGroup("players")
+				else
+					playerESP = true
+					if not findMurderer() or not findSheriff() then
+						fu.notification("No roles yet. Waiting for roles...")
+						repeat
+							task.wait(1)
+						until findSheriff() or findMurderer()
+					end
+					reloadESP()
+				end
+			end,
+			Dropped_Gun = function()
+				if gunDropESP then
+					gunDropESP = false
+					espcontainer:RemoveGroup("gun")
+				else
+					gunDropESP = true
+					if not getMap() then return end
+					if getMap():FindFirstChild("GunDrop") then
+						espcontainer:Add(getMap():FindFirstChild("GunDrop"), {
+							AccentColor = Color3.new(0.952941, 1, 0.0745098),
+							ArrowShow = true,
+							ArrowMinDistance = 999999,
+							ArrowSize = UDim2.new(0,40,0,40),
+							LabelText = "Dropped gun!",
+							ShowLabel = true,
+							GroupName = "gun"
+						})
+						fu.notification("Gun has been dropped! Find a yellow highlight.")
+					end
+				end
+			end,
+			Traps = function()
+				if trapDetection then
+					trapDetection = false
+					espcontainer:RemoveGroup("trap")
+				else
+					trapDetection = true
+					for _, v in ipairs(workspace:GetDescendants()) do
+						if v.Name == "Trap" and (v.Parent:IsA("Folder") or v.Parent:IsA("Model")) then
+							v.Transparency = 0
+							espcontainer:Add(v, {
+								AccentColor = Color3.new(1, 0, 0),
+								ArrowShow = false,
+								ShowLabel = true,
+								LabelText = "Trap",
+								GroupName = "trap"
+							})
+						end
+					end
+				end
+			end,
+		}}
+	})
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Hide my own ESP", function(Self, state)
+			hideMeEsp = state
+			reloadESP()
+		end,}
+	})
+	table.insert(module, { Type = "Text", Args = {"Tools"} })
+	
+	local instakillshoot = false
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Shoot murderer", function(Self)
+			if findSheriff() ~= localplayer then 
+				fu.notification("You're not sheriff/hero.") 
+				return 
+			end
+			local murderer = findMurderer() or findSheriffThatsNotMe()
+			if not murderer then
+				fu.notification("No murderer (or sheriff) to shoot.")
+				return
+			end
+			if not localplayer.Character:FindFirstChild("Gun") then
+				local hum = localplayer.Character:FindFirstChild("Humanoid")
+				if localplayer.Backpack:FindFirstChild("Gun") then
+					hum:EquipTool(localplayer.Backpack:FindFirstChild("Gun"))
+				else
+					fu.notification("You don't have the gun..?")
+					return
+				end
+			end
+			local murdererHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+			if not murdererHRP then
+				fu.notification("Could not find the murderer's HumanoidRootPart.")
+				return
+			end
+			local predictedPosition = getPredictedPosition(murderer, shootOffset)
+			local args
+			if instakillshoot then
+				args = {
+					CFrame.new(murdererHRP.Position + Vector3.new(0,1,0)),
+					CFrame.new(murdererHRP.Position)
+				}
+			else
+				args = {
+					CFrame.new(localplayer.Character.RightHand.Position),
+					CFrame.new(predictedPosition)
+				}
+			end
+			localplayer.Character:WaitForChild("Gun"):WaitForChild("Shoot"):FireServer(unpack(args))
+		end,}
+	})
+	
+	local spawnAtPlayer = false
+	local loopThrow = false
+	local function knifeThrow(silent)
+		if findMurderer() ~= localplayer then 
+			if silent then return end
+			fu.notification("You're not murderer.") 
+			return 
+		end
+		if not localplayer.Character:FindFirstChild("Knife") then
+			local hum = localplayer.Character:FindFirstChild("Humanoid")
+			if localplayer.Backpack:FindFirstChild("Knife") then
+				hum:EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+			else
+				if silent then return end
+				fu.notification("You don't have the knife..?")
+				return
+			end
+		end
+		local NearestPlayer = findNearestPlayer()
+		if not NearestPlayer or not NearestPlayer.Character then
+			if silent then return end
+			fu.notification("Can't find a player!?")
+			return
+		end
+		local nearestHRP = NearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not nearestHRP then
+			if silent then return end
+			fu.notification("Can't find the player's pivot.")
+		end
+		local argsThrowRemote = {
+			CFrame.new(localplayer.Character.RightHand.Position),
+			CFrame.new(getPredictedPosition(NearestPlayer, shootOffset + 1)),
+		}
+		if spawnAtPlayer then
+			argsThrowRemote[1] = CFrame.new(nearestHRP.Position + (nearestHRP.CFrame.LookVector * 5))
+		end
+		localplayer.Character:WaitForChild("Knife"):WaitForChild("Events"):WaitForChild("KnifeThrown"):FireServer(unpack(argsThrowRemote))
+	end
+	
+	task.spawn(function()
+		while task.wait(1.5) do
+			if loopThrow then
+				knifeThrow(true)
+			end
+		end
+	end)
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Knife throw to closest", function()
+			knifeThrow()
+		end}
+	})
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Auto knife throw", function(Self, tog)
+			loopThrow = tog
+		end}
+	})
+	
+	table.insert(module, {
+		Type = "Input",
+		Args = {"Shoot position offset", "Set", function(Self, text)
+			if not tonumber(text) then fu.notification("Not a valid number.") return end
+			if tonumber(text) > 5 then fu.notification("An offset with a multiplier of 5 might not at all shoot the murderer!") end
+			if tonumber(text) < 0 then fu.notification("An offset with a negative multiplier will make a shot BEHIND the murderer's walk direction.") end
+			shootOffset = tonumber(text)
+			fu.notification("Offset has been set.")
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Input",
+		Args = {"Offset-to-ping multiplier", "Set", function(Self, text)
+			if not tonumber(text) then fu.notification("Not a valid number.") return end
+			offsetToPingMult = tonumber(text)
+			fu.notification("Offset has been set.")
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Text",
+		Args = {"Shoot offset re-aims the gun/knife shoot/throw to the character's predicted position. Recommended is 2.8"}
+	})
+	
+	local function secondsToMinutes(seconds)
+		if seconds == -1 then return "" end
+		local minutes = math.floor(seconds / 60)
+		local remainingSeconds = seconds % 60
+		return string.format("%dm %ds", minutes, remainingSeconds)
+	end
+	local timertask = nil
+	local timertext = nil
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Round timer", function(Self, state)
+			if state then
+				timertext = Instance.new("TextLabel")
+				timertext.Parent = script.Parent
+				timertext.BackgroundTransparency = 1
+				timertext.TextColor3 = Color3.fromRGB(255, 255, 255)
+				timertext.TextScaled = true
+				timertext.AnchorPoint = Vector2.new(0.5, 0.5)
+				timertext.Position = UDim2.fromScale(0.5, 0.15)
+				timertext.Size = UDim2.fromOffset(200, 35)
+				timertext.Font = Enum.Font.Montserrat
+				timertask = task.spawn(function()
+					while task.wait(0.5) do
+						local timeLeft = game.Workspace:FindFirstChild("RoundTimerPart"):GetAttribute("Time")
+						timertext.Text = secondsToMinutes(timeLeft)
+					end
+				end)
+			else
+				if timertext then timertext:Destroy() end
+				task.cancel(timertask)
+			end
+		end,}
+	})
+	
+	table.insert(module, {Type="Text", Args={""}})
+	table.insert(module, { Type = "Text", Args = {"<font color='#FF0000'>Detectables</font>"} })
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Instakill murderer as sheriff", function(Self, tog)
+			instakillshoot = tog
+		end}
+	})
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Spawn knife throw near player", function(Self, tog)
+			spawnAtPlayer = tog
+		end}
+	})
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Send Sheriff and Murderer names into chat", function(Self)
+			local textchannels = game:GetService("TextChatService"):WaitForChild("TextChannels"):GetChildren()
+			for _, textchannel in ipairs(textchannels) do
+				if textchannel.Name == "RBXSystem" then continue end
+				local murd = findMurderer()
+				local sher = findSheriff()
+				local murdName = "-"
+				local sherName = "-"
+				if murd then murdName = murd.Name end
+				if sher then sherName = sher.Name end
+				local message = string.format([[Murderer: %s |
+		Sheriff: %s |
+		<<YARHM>>]], murdName, sherName)
+				textchannel:SendAsync(message)
+			end
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "ButtonGrid",
+		Args = {2, {
+			Teleport_to_lobby = function(Self)
+				local lobby = workspace:FindFirstChild("Lobby") 
+				if lobby then
+					localplayer.Character:MoveTo(lobby.Spawns:FindFirstChildWhichIsA("SpawnLocation").Position)
+				end
+			end,
+			Teleport_to_map = function(Self)
+				local spawnsFolder = getMap():FindFirstChild("Spawns")
+				if spawnsFolder then
+					local spawns = spawnsFolder:GetChildren()
+					local randomSpawn = spawns[math.random(1, #spawns)]
+					localplayer.Character:MoveTo(randomSpawn.Position)
+				else
+					fu.notification("No map to teleport to.")
+				end
+			end,
+		}}
+	}) 
+	
+	table.insert(module, {
+		Type = "ButtonGrid",
+		Args = {2, {
+			Fling_Sheriff = function()
+				if not findSheriff() then
+					fu.notification("No sheriff/hero to fling.")
+					return
+				end
+				miniFling(findSheriff())
+			end,
+			Fling_Murderer = function()
+				if not findMurderer() then
+					fu.notification("No murderer to fling.")
+					return
+				end
+				miniFling(findMurderer())
+			end,
+		}}
+	})
+	
+	table.insert(module, {
+		Type = "ButtonGrid",
+		Args = {2, {
+			Copy_murderer_username = function()
+				if not findMurderer() then
+					fu.notification("No murderer to copy.")
+					return
+				end
+				if setclipboard then setclipboard(findMurderer().Name) end
+				fu.notification("Copied to clipboard.")
+			end,
+			Copy_sheriff_username = function()
+				if not findSheriff() then
+					fu.notification("No sheriff/hero to copy.")
+					return
+				end
+				if setclipboard then setclipboard(findSheriff().Name) end
+				fu.notification("Copied to clipboard.")
+			end,
+		}}
+	})
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Teleport to dropped gun", function(Self)
+			if gunDropTakeExp then
+				local character = localplayer.Character or localplayer.CharacterAdded:Wait()
+				local rootPart = character:FindFirstChild("HumanoidRootPart")
+				local gunDrop = getMap():FindFirstChild("GunDrop")
+				if gunDrop and rootPart then
+					local touchPart = gunDrop:FindFirstChild("Handle") or gunDrop
+					gunDrop:PivotTo(rootPart.CFrame)
+					firetouchinterest(rootPart, touchPart, 0)
+					task.wait()
+					firetouchinterest(rootPart, touchPart, 1)
+				end
+				return
+			end
+			if not getMap():FindFirstChild("GunDrop") then fu.notification("No dropped gun to be teleported to.") return end
+			local previousPosition = localplayer.Character:GetPivot()
+			localplayer.Character:PivotTo(getMap():FindFirstChild("GunDrop"):GetPivot())
+			localplayer.Backpack.ChildAdded:Wait()
+			localplayer.Character:PivotTo(previousPosition)
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Automatically get gun on drop", function(Self, state)
+			autoGetDroppedGun = state
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Experimental dropped gun take", function(Self, state)
+			gunDropTakeExp = state
+		end,}
+	})
+	
+	local ignoreknifethrow = false
+	game.Workspace.ChildAdded:Connect(function(chi)
+		if chi.Name == "ThrowingKnife" and ignoreknifethrow then
+			chi:Destroy()
+		end
+	end)
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Ignore knife throws (doesn't work)", function(Self, state)
+			ignoreknifethrow = state
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"God mode (Very, VERY UNSTABLE)", function(Self)
+			local Cam = workspace.CurrentCamera
+			local Pos, Char = Cam.CFrame, localplayer.Character
+			local Human = Char and Char.FindFirstChildWhichIsA(Char, "Humanoid")
+			local nHuman = Human.Clone(Human)
+			nHuman.Parent, localplayer.Character = Char, nil
+			nHuman.SetStateEnabled(nHuman, 15, false)
+			nHuman.SetStateEnabled(nHuman, 1, false)
+			nHuman.SetStateEnabled(nHuman, 0, false)
+			nHuman.BreakJointsOnDeath, Human = true, Human.Destroy(Human)
+			localplayer.Character, Cam.CameraSubject, Cam.CFrame = Char, nHuman, wait() and Pos
+			nHuman.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			local Script = Char.FindFirstChild(Char, "Animate")
+			if Script then
+				Script.Disabled = true
+				wait()
+				Script.Disabled = false
+			end
+			nHuman.Health = nHuman.MaxHealth
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Kill closest player as murderer", function()
+			if findMurderer() ~= localplayer then fu.notification("You're not murderer.") return end
+			if not localplayer.Character:FindFirstChild("Knife") then
+				local hum = localplayer.Character:FindFirstChild("Humanoid")
+				if localplayer.Backpack:FindFirstChild("Knife") then
+					localplayer.Character:FindFirstChild("Humanoid"):EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+				else
+					fu.notification("You don't have the knife..?")
+					return
+				end
+			end
+			local NearestPlayer = findNearestPlayer()
+			if not NearestPlayer or not NearestPlayer.Character then
+				fu.notification("Can't find a player!?")
+				return
+			end
+			local nearestHRP = NearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if not nearestHRP then
+				fu.notification("Can't find the player's pivot.")
+			end
+			if not localplayer.Character:FindFirstChild("HumanoidRootPart") then fu.notification("You're not a valid character.") return end
+			if not simulateKnifeThrow then
+				nearestHRP.Anchored = true
+				nearestHRP.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 2
+				task.wait(0.1)
+				local args = { [1] = "Slash" }
+				localplayer.Character.Knife.Stab:FireServer(unpack(args))
+				return
+			else
+				local lpknife = localplayer.Character:FindFirstChild("Knife")
+				if not lpknife then return end
+				local raycastParams = RaycastParams.new()
+				raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+				raycastParams.FilterDescendantsInstances = {localplayer.Character}
+				local rayResult = workspace:Raycast(lpknife:GetPivot().Position, (nearestHRP.Position - localplayer.Character:FindFirstChild("HumanoidRootPart").Position).Unit * 350, raycastParams)
+				local toThrow = nearestHRP.Position
+				local args = { [1] = lpknife:GetPivot(), [2] = toThrow }
+				localplayer.Character.Knife.Throw:FireServer(unpack(args))
+				return
+			end
+		end,}
+	})
+	
+	local killAuraCon = nil
+	
+	table.insert(module, {
+		Type = "Toggle",
+		Args = {"Murderer kill aura", function(Self, state)
+			if state then
+				if killAuraCon then killAuraCon:Disconnect() end
+			else
+				killAuraCon = game:GetService("RunService").Heartbeat:Connect(function()
+					for _, player in ipairs(game.Players:GetPlayers()) do
+						if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player ~= localplayer then
+							local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+							if (hrp.Position - localplayer.Character:FindFirstChild("HumanoidRootPart").Position).Magnitude < 7 then
+								hrp.Anchored = true
+								hrp.CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 2
+								task.wait(0.1)
+								local args = { [1] = "Slash" }
+								localplayer.Character.Knife.Stab:FireServer(unpack(args))
+								return	
+							end
+						end
+					end
+				end)
+			end
+		end,}
+	})
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Kill EVERYONE as murderer", function()
+			if findMurderer() ~= localplayer then fu.notification("You're not murderer.") return end
+			if not localplayer.Character:FindFirstChild("Knife") then
+				local hum = localplayer.Character:FindFirstChild("Humanoid")
+				if localplayer.Backpack:FindFirstChild("Knife") then
+					localplayer.Character:FindFirstChild("Humanoid"):EquipTool(localplayer.Backpack:FindFirstChild("Knife"))
+				else
+					fu.notification("You don't have the knife..?")
+					return
+				end
+			end
+			for _, player in ipairs(game.Players:GetPlayers()) do
+				if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player ~= localplayer then
+					player.Character:FindFirstChild("HumanoidRootPart").Anchored = true
+					player.Character:FindFirstChild("HumanoidRootPart").CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 1 
+				end	
+			end
+			local args = { [1] = "Slash" }
+			localplayer.Character.Knife.Stab:FireServer(unpack(args))
+		end,}
+	})
+	
+	table.insert(module, { Type = "Text", Args = {"Fun"} })
+	
+	table.insert(module, {
+		Type = "Button",
+		Args = {"Hold everyone hostage", function()
+			if findMurderer() ~= localplayer then fu.notification("You're not murderer. This'll only be useful if you're the murderer.") return end
+			for _, player in ipairs(game.Players:GetPlayers()) do
+				if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player ~= localplayer then
+					player.Character:FindFirstChild("HumanoidRootPart").Anchored = true
+					player.Character:FindFirstChild("HumanoidRootPart").CFrame = localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame + localplayer.Character:FindFirstChild("HumanoidRootPart").CFrame.LookVector * 5
+				end	
+			end
+			fu.notification("Placed every single player in a single point. Kill everyone at once once you decide to.")
+		end,}
+	})
+	
+	repeat task.wait() until getgenv().Modules
+	getgenv().Modules[3] = module
+	fu.refreshlist()
+end
