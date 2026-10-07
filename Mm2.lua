@@ -43,10 +43,19 @@ if not isMM2() then
     avisoGui.DisplayOrder = 9999
     pcall(function() avisoGui.Parent = game:GetService("CoreGui") end)
 
+    -- Pega nome real do jogo
+    local gameDisplayName = game.Name or "?"
+    pcall(function()
+        local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+        if info and info.Name and info.Name ~= "" then
+            gameDisplayName = info.Name
+        end
+    end)
+
     local frame = Instance.new("Frame")
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
     frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    frame.Size = UDim2.fromOffset(420, 130)
+    frame.Size = UDim2.fromOffset(440, 150)
     frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     frame.BackgroundTransparency = 0.05
     frame.BorderSizePixel = 0
@@ -73,14 +82,14 @@ if not isMM2() then
     title.Parent = frame
 
     local msg = Instance.new("TextLabel")
-    msg.Size = UDim2.new(1, -20, 0, 60)
+    msg.Size = UDim2.new(1, -20, 0, 80)
     msg.Position = UDim2.fromOffset(10, 50)
     msg.BackgroundTransparency = 1
     msg.Font = Enum.Font.Gotham
     msg.TextSize = 14
     msg.TextColor3 = Color3.fromRGB(230, 230, 240)
     msg.TextWrapped = true
-    msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\nJogo atual: " .. tostring(game.Name or "?") .. "\nPlaceId: " .. tostring(game.PlaceId)
+    msg.Text = "Este script só funciona no Murdery Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
 
     task.spawn(function()
@@ -102,7 +111,7 @@ if not isMM2() then
         avisoGui:Destroy()
     end)
 
-    warn("[MM2 Hub] Jogo incompatível: " .. tostring(game.Name) .. " (PlaceId: " .. tostring(game.PlaceId) .. ")")
+    warn("[MM2 Hub] Jogo incompatível: " .. tostring(gameDisplayName) .. " (PlaceId: " .. tostring(game.PlaceId) .. ")")
     return
 end
 
