@@ -1397,8 +1397,7 @@ end})
 MTab:CreateButton({Name="Fling",Callback=function()
     if not Config.FlingTarget then Rayfield:Notify({Title="Fling",Content="Escolha alvo",Duration=3}); return end
     task.spawn(function() skidFling(Config.FlingTarget) end)
-end})
-MTab:CreateButtonGrid && MTab:CreateButton({Name="Fling Sheriff",Callback=function()
+end})MTab:CreateButton({Name="Fling Sheriff",Callback=function()
     local s=findSheriff(); if not s then Rayfield:Notify({Title="Fling",Content="Sem sheriff",Duration=3}); return end
     task.spawn(function() skidFling(s) end)
 end})
