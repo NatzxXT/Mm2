@@ -1,7 +1,6 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - VERSÃO COMPATÍVEL (Xeno/Delta)
---  ESP corrigido (funciona com arma guardada)
---  Trigger Bot com FOV configurável
+--  MM2 CHECK HUB v3 - COMPLETO
+--  ESP otimizado • Trigger FOV visível • Auto Farm Coins
 -- ============================================================
 local okLoad, errLoad = pcall(function()
 
@@ -57,24 +56,21 @@ local Config = {
 }
 
 -- ============================================================
---  ROLE  (CORRIGIDO: checa Character + Backpack + Descendants)
+--  ROLE
 -- ============================================================
 local function getRole(player)
     local char = player.Character
     if not char then return "Innocent" end
 
-    -- 1) Checa no Character (equipado)
     if char:FindFirstChild("Knife") then return "Murderer" end
     if char:FindFirstChild("Gun") then return "Sheriff" end
 
-    -- 2) Checa no Backpack (guardado)
     local backpack = player:FindFirstChildOfClass("Backpack")
     if backpack then
         if backpack:FindFirstChild("Knife") then return "Murderer" end
         if backpack:FindFirstChild("Gun") then return "Sheriff" end
     end
 
-    -- 3) Fallback: varre descendentes do Character por Tools com nome knife/gun
     for _, obj in ipairs(char:GetDescendants()) do
         if obj:IsA("Tool") then
             local n = obj.Name:lower()
@@ -93,7 +89,7 @@ local function getRoleColor(role)
 end
 
 -- ============================================================
---  FOV CIRCLE
+--  FOV CIRCLES
 -- ============================================================
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "MM2_FOV"
@@ -101,6 +97,7 @@ fovGui.IgnoreGuiInset = true
 fovGui.ResetOnSpawn = false
 pcall(function() fovGui.Parent = game.CoreGui end)
 
+-- Aimbot FOV (azul)
 local fovCircle = Instance.new("Frame")
 fovCircle.Size = UDim2.new(0, Config.Aimbot_FOV * 2, 0, Config.Aimbot_FOV * 2)
 fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -118,6 +115,25 @@ fovStroke.Parent = fovCircle
 local fovCorner = Instance.new("UICorner")
 fovCorner.CornerRadius = UDim.new(1, 0)
 fovCorner.Parent = fovCircle
+
+-- Trigger Bot FOV (vermelho)
+local trigCircle = Instance.new("Frame")
+trigCircle.Size = UDim2.new(0, Config.TriggerBot_FOV * 2, 0, Config.TriggerBot_FOV * 2)
+trigCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+trigCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+trigCircle.BackgroundTransparency = 1
+trigCircle.BorderSizePixel = 0
+trigCircle.Parent = fovGui
+
+local trigStroke = Instance.new("UIStroke")
+trigStroke.Thickness = 1.5
+trigStroke.Color = Color3.fromRGB(255, 100, 100)
+trigStroke.Transparency = 0.4
+trigStroke.Parent = trigCircle
+
+local trigCorner = Instance.new("UICorner")
+trigCorner.CornerRadius = UDim.new(1, 0)
+trigCorner.Parent = trigCircle
 
 local function isInFOV(worldPos, fovPixels)
     local sp, onScreen = Camera:WorldToScreenPoint(worldPos)
@@ -179,10 +195,14 @@ local function hasLineOfSight(originPos, targetPos, targetChar)
 end
 
 -- ============================================================
---  ESP
+--  ESP OTIMIZADO
 -- ============================================================
 local espCache = {}
 local nameCache = {}
+
+local ESP_UPDATE_INTERVAL = 0.15
+local ESP_MAX_DISTANCE = 500
+local lastESPUpdate = 0
 
 local function removeHighlight(player)
     if espCache[player] then espCache[player]:Destroy() espCache[player] = nil end
@@ -198,9 +218,9 @@ local function createHighlight(player)
     local hl = Instance.new("Highlight")
     hl.Name = "MM2_ESP"
     hl.Adornee = char
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.Occluded
+    hl.FillTransparency = 0.65
+    hl.OutlineTransparency = 0.2
     local c = getRoleColor(getRole(player))
     hl.FillColor = c
     hl.OutlineColor = c
@@ -237,9 +257,27 @@ local function createNameTag(player)
 end
 
 local function updateESP()
+    local now = tick()
+    if now - lastESPUpdate < ESP_UPDATE_INTERVAL then return end
+    lastESPUpdate = now
+
+    local myChar = LocalPlayer.Character
+    local myPos = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        and myChar.HumanoidRootPart.Position or nil
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            if Config.ESP_Players then
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+            local tooFar = false
+            if myPos and hrp then
+                if (hrp.Position - myPos).Magnitude > ESP_MAX_DISTANCE then
+                    tooFar = true
+                end
+            end
+
+            if Config.ESP_Players and char and not tooFar then
                 if not espCache[player] or not espCache[player].Adornee then
                     createHighlight(player)
                 end
@@ -252,7 +290,7 @@ local function updateESP()
                 removeHighlight(player)
             end
 
-            if Config.ESP_Name then
+            if Config.ESP_Name and char and not tooFar then
                 if not nameCache[player] then createNameTag(player) end
                 if nameCache[player] and nameCache[player].Adornee then
                     local lbl = nameCache[player]:FindFirstChildOfClass("TextLabel")
@@ -283,7 +321,7 @@ local function updateGunESP()
             gunESP.FillColor = Color3.fromRGB(255, 255, 0)
             gunESP.OutlineColor = Color3.fromRGB(255, 255, 0)
             gunESP.FillTransparency = 0.3
-            gunESP.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            gunESP.DepthMode = Enum.HighlightDepthMode.Occluded
             gunESP.Parent = gun
         end
     else
@@ -487,18 +525,121 @@ local function handleAntiVoid()
 end
 
 -- ============================================================
+--  AUTO FARM DE MOEDAS
+-- ============================================================
+local CoinFarm = {
+    Enabled = false,
+    Speed = 0.3,
+    MaxCoins = 40,
+}
+
+local function findCoins()
+    local coins = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            local n = obj.Name:lower()
+            if n == "coin" or n:find("coin") or n:find("gold") then
+                local isInChar = false
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p.Character and obj:IsDescendantOf(p.Character) then
+                        isInChar = true
+                        break
+                    end
+                end
+                if not isInChar then
+                    local pos = nil
+                    if obj:IsA("BasePart") then
+                        pos = obj.Position
+                    elseif obj:IsA("Model") and obj.PrimaryPart then
+                        pos = obj.PrimaryPart.Position
+                    end
+                    if pos then
+                        table.insert(coins, {obj = obj, pos = pos})
+                    end
+                end
+            end
+        end
+    end
+    return coins
+end
+
+local function getMyCoinCount()
+    local stats = LocalPlayer:FindFirstChild("leaderstats")
+    if stats then
+        local c = stats:FindFirstChild("Coins") or stats:FindFirstChild("Coin")
+        if c then return c.Value end
+    end
+    return 0
+end
+
+local farmRunning = false
+local function startCoinFarm()
+    if farmRunning then return end
+    farmRunning = true
+    task.spawn(function()
+        while CoinFarm.Enabled do
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+
+                local currentCoins = getMyCoinCount()
+                if currentCoins >= CoinFarm.MaxCoins then
+                    CoinFarm.Enabled = false
+                    Rayfield:Notify({
+                        Title = "Auto Farm",
+                        Content = "Limite de " .. CoinFarm.MaxCoins .. " moedas atingido! Desligando...",
+                        Duration = 5,
+                    })
+                    return
+                end
+
+                local coins = findCoins()
+                if #coins == 0 then return end
+
+                local myHrp = char:FindFirstChild("HumanoidRootPart")
+                if not myHrp then return end
+                local myPos = myHrp.Position
+
+                local closest, closestDist = nil, math.huge
+                for _, c in ipairs(coins) do
+                    local d = (c.pos - myPos).Magnitude
+                    if d < closestDist then
+                        closestDist = d
+                        closest = c
+                    end
+                end
+
+                if closest then
+                    myHrp.CFrame = CFrame.new(closest.pos + Vector3.new(0, 2, 0))
+                    myHrp.Velocity = Vector3.new(0, 0, 0)
+                end
+            end)
+            task.wait(CoinFarm.Speed)
+        end
+        farmRunning = false
+    end)
+end
+
+-- ============================================================
 --  LOOP PRINCIPAL
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    pcall(updateESP)
-    pcall(updateGunESP)
     pcall(handleTriggerBot)
     pcall(handleAntiVoid)
     pcall(handleAutoKill)
 
+    -- FOV do Aimbot
     fovCircle.Visible = Config.Show_FOV
     if Config.Show_FOV then
         fovCircle.Size = UDim2.new(0, Config.Aimbot_FOV * 2, 0, Config.Aimbot_FOV * 2)
+    end
+
+    -- FOV do Trigger Bot
+    trigCircle.Visible = Config.TriggerBot and Config.Show_FOV
+    if trigCircle.Visible then
+        trigCircle.Size = UDim2.new(0, Config.TriggerBot_FOV * 2, 0, Config.TriggerBot_FOV * 2)
     end
 
     if Config.Aimbot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -532,6 +673,14 @@ RunService.RenderStepped:Connect(function()
         for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
             if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end
         end
+    end
+end)
+
+-- Loop separado do ESP (mais leve)
+task.spawn(function()
+    while task.wait(0.15) do
+        pcall(updateESP)
+        pcall(updateGunESP)
     end
 end)
 
@@ -800,7 +949,7 @@ AimbotTab:CreateSlider({
     Callback = function(v) Config.Aimbot_FOV = v end,
 })
 AimbotTab:CreateToggle({
-    Name = "Mostrar FOV",
+    Name = "Mostrar FOVs",
     CurrentValue = true,
     Callback = function(v) Config.Show_FOV = v end,
 })
@@ -879,6 +1028,46 @@ GunTab:CreateToggle({
     Name = "Auto Grab Gun",
     CurrentValue = false,
     Callback = function(v) Config.AutoGrabGun = v end,
+})
+
+-- ---------- Auto Farm ----------
+local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
+FarmTab:CreateToggle({
+    Name = "Auto Farm Coins",
+    CurrentValue = false,
+    Callback = function(v)
+        CoinFarm.Enabled = v
+        if v then
+            startCoinFarm()
+            Rayfield:Notify({
+                Title = "Auto Farm",
+                Content = "Farmando ate " .. CoinFarm.MaxCoins .. " moedas...",
+                Duration = 4,
+            })
+        end
+    end,
+})
+FarmTab:CreateSlider({
+    Name = "Farm Speed",
+    Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
+    CurrentValue = 0.3,
+    Callback = function(v) CoinFarm.Speed = v end,
+})
+FarmTab:CreateSlider({
+    Name = "Limite de Moedas",
+    Range = {10, 50}, Increment = 5,
+    CurrentValue = 40,
+    Callback = function(v) CoinFarm.MaxCoins = v end,
+})
+FarmTab:CreateButton({
+    Name = "Ver minhas moedas atuais",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Moedas",
+            Content = "Voce tem: " .. getMyCoinCount(),
+            Duration = 4,
+        })
+    end,
 })
 
 -- ---------- Movimento ----------
