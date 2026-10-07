@@ -281,7 +281,7 @@ Converted["_YARHM"].ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
 Converted["_YARHM"].ResetOnSpawn = false
 Converted["_YARHM"].ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Converted["_YARHM"].Name = "YARHM"
-Converted["_YARHM"].Parent = game:GetService("CoreGui")
+Converted["_YARHM"].Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
 
 Converted["_MenuButton"].Font = Enum.Font.GothamBold
 Converted["_MenuButton"].Text = "a"
@@ -3407,19 +3407,16 @@ local function BPADER_routine() -- StarterGui.YARHM.Init
 		end
 		return table.concat(array)
 	end
-	local s, e = pcall(function()
-		if get_hidden_gui or gethui then
-			local hiddenUI = get_hidden_gui or gethui
-			script.Parent.Name = randomString()
-			script.Parent.Parent = hiddenUI()
-		elseif (not is_sirhurt_closure) and (syn and syn.protect_gui) then
-			script.Parent.Name = randomString()
-			syn.protect_gui(script.Parent)
-			script.Parent.Parent = COREGUI
-		elseif COREGUI:FindFirstChild('RobloxGui') then
-			script.Parent.Parent = COREGUI.RobloxGui
-		end
-	end)
+local s, e = pcall(function()
+    -- Apenas renomeia o script para evitar conflitos
+    script.Parent.Name = randomString()
+    
+    -- Força o menu a ficar no PlayerGui, evitando o erro no CoreGui
+    local Players = game:GetService("Players")
+    if Players.LocalPlayer then
+        script.Parent.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    end
+end)
 	
 	local func = require(script.Parent.FUNCTIONS)
 	getgenv().YARHM_FUNCTIONS = func
