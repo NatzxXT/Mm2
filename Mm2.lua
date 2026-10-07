@@ -1,6 +1,6 @@
 -- ============================================================
 --  MM2 CHECK HUB v3 - FINAL
---  Menu: Right Ctrl • Radar topo • Murder/Sheriff separados
+--  Menu: RightCtrl • Radar topo • Attack via Activate + wait
 -- ============================================================
 
 local MM2_PLACE_IDS = { 142823291, 1990777535, 321010323 }
@@ -134,6 +134,9 @@ local PhysicsService = game:GetService("PhysicsService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
+-- ============================================================
+--  CONFIG
+-- ============================================================
 local Config = {
     ESP_Players = false,
     ESP_Name = false,
@@ -150,17 +153,16 @@ local Config = {
     Show_FOV = true,
     TriggerBot = false,
     TriggerBot_TeamCheck = false,
-    TriggerBot_Delay = 0.08,
+    TriggerBot_Delay = 0.25,
     TriggerBot_FOV = 40,
     TriggerBot_WallCheck = false,
     TriggerBot_Instant = false,
     AutoKill_Murder = false,
     AutoKill_Sheriff = false,
-    AutoKill_Range = 15,
+    AutoKill_Range = 25,
     AutoKill_GunRange = 500,
-    AutoKill_Delay = 0.35,
+    AutoKill_Delay = 0.5,
     AutoKill_WallCheck = true,
-    AutoKill_AutoEquip = true,
     Speed = 16,
     JumpPower = 50,
     InfiniteJump = false,
@@ -199,26 +201,37 @@ local Config = {
     FOV_Color_Trigger = Color3.fromRGB(255, 100, 100),
 }
 
+-- ============================================================
+--  ROLE
+-- ============================================================
 local roleCache = {}
 local ROLE_CACHE_TIME = 0.5
+
+local MURDERER_KW = {"knife", "dagger", "blade"}
+local SHERIFF_KW = {"gun", "revolver", "pistol"}
 
 local function getRoleRaw(player)
     local char = player.Character
     if not char then return "Innocent" end
-    if char:FindFirstChild("Knife") then return "Murderer" end
-    if char:FindFirstChild("Gun") then return "Sheriff" end
-    local backpack = player:FindFirstChildOfClass("Backpack")
-    if backpack then
-        if backpack:FindFirstChild("Knife") then return "Murderer" end
-        if backpack:FindFirstChild("Gun") then return "Sheriff" end
-    end
-    for _, obj in ipairs(char:GetChildren()) do
-        if obj:IsA("Tool") then
-            local n = obj.Name:lower()
-            if n:find("knife") then return "Murderer" end
-            if n:find("gun") then return "Sheriff" end
+    local function check(container)
+        if not container then return nil end
+        for _, obj in ipairs(container:GetChildren()) do
+            if obj:IsA("Tool") then
+                local n = obj.Name:lower()
+                for _, k in ipairs(MURDERER_KW) do
+                    if n:find(k) then return "Murderer" end
+                end
+                for _, k in ipairs(SHERIFF_KW) do
+                    if n:find(k) then return "Sheriff" end
+                end
+            end
         end
+        return nil
     end
+    local r = check(char)
+    if r then return r end
+    r = check(player:FindFirstChildOfClass("Backpack"))
+    if r then return r end
     return "Innocent"
 end
 
@@ -239,6 +252,9 @@ end
 
 Players.PlayerRemoving:Connect(function(p) roleCache[p] = nil end)
 
+-- ============================================================
+--  FOV CIRCLES
+-- ============================================================
 local fovGui = Instance.new("ScreenGui")
 fovGui.Name = "MM2_FOV"
 fovGui.IgnoreGuiInset = true
@@ -283,6 +299,9 @@ local function getScreenCenter()
     return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 end
 
+-- ============================================================
+--  HELPERS
+-- ============================================================
 local function findTool(char, keyword, player)
     if not char then return nil end
     for _, t in ipairs(char:GetChildren()) do
@@ -297,29 +316,6 @@ local function findTool(char, keyword, player)
         end
     end
     return nil
-end
-
-local function getEquippedTool(char)
-    if not char then return nil end
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then return tool end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum and hum.GetEquippedTool then
-        pcall(function() tool = hum:GetEquippedTool() end)
-    end
-    return tool
-end
-
-local function equipTool(tool)
-    if not tool then return false end
-    local char = LocalPlayer.Character
-    if not char then return false end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then return false end
-    if hum:GetEquippedTool() == tool then return true end
-    if tool.Parent ~= char then tool.Parent = char end
-    pcall(function() hum:EquipTool(tool) end)
-    return true
 end
 
 local function isInAnyCharacter(obj)
@@ -341,6 +337,54 @@ local function hasLineOfSight(originPos, targetPos, targetChar)
     return result == nil
 end
 
+-- ============================================================
+--  ATAQUE REAL (teleporta + espera + Activate)
+-- ============================================================
+local attacking = false
+
+local function attackWithTool(tool, targetChar)
+    if attacking or not tool then return end
+    attacking = true
+    task.spawn(function()
+        local char = LocalPlayer.Character
+        if not char then attacking = false return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum then attacking = false return end
+
+        -- 1) Teleporta em cima do alvo
+        if targetChar then
+            local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
+            local myHrp = char:FindFirstChild("HumanoidRootPart")
+            if tHrp and myHrp then
+                myHrp.CFrame = CFrame.new(tHrp.Position)
+                myHrp.Velocity = Vector3.zero
+            end
+        end
+
+        -- 2) Equipa
+        if tool.Parent ~= char then tool.Parent = char end
+        if hum:GetEquippedTool() ~= tool then
+            pcall(function() hum:EquipTool(tool) end)
+        end
+
+        -- 3) Espera o servidor sincronizar posição
+        task.wait(0.2)
+
+        -- 4) Ativa (é o que mata)
+        pcall(function() tool:Activate() end)
+        task.wait(0.05)
+
+        -- 5) Desequipa
+        local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+        if bp then pcall(function() tool.Parent = bp end) end
+
+        attacking = false
+    end)
+end
+
+-- ============================================================
+--  FINDERS
+-- ============================================================
 local gunCache = { obj = nil, time = 0 }
 
 local function findDroppedGunPart()
@@ -381,6 +425,9 @@ local function findDroppedGunPart()
     return nil
 end
 
+-- ============================================================
+--  ESP
+-- ============================================================
 local espCache = {}
 local nameCache = {}
 local ESP_UPDATE_INTERVAL = 0.35
@@ -530,6 +577,9 @@ local function updateGunESP()
     gunESP.Parent = adornee
 end
 
+-- ============================================================
+--  AIMBOT / TRIGGER
+-- ============================================================
 local function isTargetValid(targetPlayer, useTeamCheck)
     if targetPlayer == LocalPlayer then return false end
     local myRole = getRole(LocalPlayer)
@@ -577,21 +627,31 @@ end
 local lastFire = 0
 local function handleTriggerBot()
     if not Config.TriggerBot then return end
+    if attacking then return end
     local now = tick()
     if not Config.TriggerBot_Instant then
         if now - lastFire < Config.TriggerBot_Delay then return end
     end
     local char = LocalPlayer.Character
     if not char then return end
-    local tool = getEquippedTool(char)
-    if not tool then return end
     local myRole = getRole(LocalPlayer)
-    local isMelee = myRole == "Murderer" or tool.Name:lower():find("knife")
+
+    local tool, isMelee
+    if myRole == "Murderer" then
+        tool = findTool(char, "knife", LocalPlayer)
+        isMelee = true
+    else
+        tool = findTool(char, "gun", LocalPlayer)
+        isMelee = false
+    end
+    if not tool then return end
+
     local myHRP = char:FindFirstChild("HumanoidRootPart")
     if not myHRP then return end
     local myPos = myHRP.Position
     local center = getScreenCenter()
     local camPos = Camera.CFrame.Position
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local tChar = player.Character
@@ -615,7 +675,13 @@ local function handleTriggerBot()
                                         canFire = hasLineOfSight(camPos, head.Position, char)
                                     end
                                     if canFire then
-                                        pcall(function() tool:Activate() end)
+                                        if isMelee then
+                                            attackWithTool(tool, tChar)
+                                        else
+                                            myHRP.CFrame = CFrame.lookAt(myHRP.Position, head.Position)
+                                            task.wait(0.15)
+                                            pcall(function() tool:Activate() end)
+                                        end
                                         lastFire = now
                                         return
                                     end
@@ -629,6 +695,9 @@ local function handleTriggerBot()
     end
 end
 
+-- ============================================================
+--  AUTO KILL
+-- ============================================================
 local function findMurderer()
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return nil end
@@ -691,6 +760,7 @@ local function handleAutoKill()
     if not hum or hum.Health <= 0 then return end
     local myRole = getRole(LocalPlayer)
 
+    -- MURDERER
     if myRole == "Murderer" then
         if not Config.AutoKill_Murder then return end
         local now = tick()
@@ -699,20 +769,13 @@ local function handleAutoKill()
         if not knife then return end
         local enemy = findNearestEnemy(Config.AutoKill_Range)
         if enemy and enemy:FindFirstChild("HumanoidRootPart") then
-            if Config.AutoKill_AutoEquip and getEquippedTool(char) ~= knife then
-                equipTool(knife)
-                lastAutoKill = now
-                return
-            end
-            pcall(function()
-                Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, enemy.HumanoidRootPart.Position)
-            end)
-            pcall(function() knife:Activate() end)
+            attackWithTool(knife, enemy)
             lastAutoKill = now
         end
         return
     end
 
+    -- SHERIFF
     if myRole == "Sheriff" or findTool(char, "gun", LocalPlayer) then
         if not Config.AutoKill_Sheriff then return end
         local now = tick()
@@ -726,12 +789,8 @@ local function handleAutoKill()
             if myHRP then
                 local dist = (mHRP.Position - myHRP.Position).Magnitude
                 if dist <= Config.AutoKill_GunRange then
-                    if Config.AutoKill_AutoEquip and getEquippedTool(char) ~= gun then
-                        equipTool(gun)
-                        lastAutoKill = now
-                        return
-                    end
-                    pcall(function() gun:Activate() end)
+                    myHRP.CFrame = CFrame.lookAt(myHRP.Position, mHRP.Position)
+                    attackWithTool(gun, nil)
                     lastAutoKill = now
                 end
             end
@@ -739,6 +798,9 @@ local function handleAutoKill()
     end
 end
 
+-- ============================================================
+--  INFINITE JUMP
+-- ============================================================
 UserInputService.JumpRequest:Connect(function()
     if Config.InfiniteJump then
         local char = LocalPlayer.Character
@@ -749,6 +811,9 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- ============================================================
+--  LOOPS
+-- ============================================================
 task.spawn(function()
     while task.wait(0.3) do
         if Config.AntiVoid then
@@ -803,6 +868,9 @@ task.spawn(function()
     while task.wait(1) do pcall(updateGunESP) end
 end)
 
+-- ============================================================
+--  EXTRAS
+-- ============================================================
 pcall(function()
     local StarterGui = game:GetService("StarterGui")
     if hookfunction then
@@ -900,6 +968,7 @@ task.spawn(function()
     end
 end)
 
+-- HITBOX
 local hitboxSaved = setmetatable({}, { __mode = "k" })
 task.spawn(function()
     while task.wait(0.15) do
@@ -958,6 +1027,7 @@ task.spawn(function()
     end
 end)
 
+-- COIN ESP
 local coinESPObjs = {}
 local function updateCoinESP()
     if not Config.CoinESP then
@@ -1190,7 +1260,7 @@ local function killAll()
     if not char then return end
     local knife = findTool(char, "knife", LocalPlayer)
     if not knife then
-        Rayfield:Notify({ Title = "Kill All", Content = "Precisa estar de Murderer com faca!", Duration = 3 })
+        Rayfield:Notify({ Title = "Kill All", Content = "Precisa ser Murderer com faca!", Duration = 3 })
         return
     end
     task.spawn(function()
@@ -1205,16 +1275,27 @@ local function killAll()
                     local tHrp = tChar:FindFirstChild("HumanoidRootPart")
                     local hum = tChar:FindFirstChildOfClass("Humanoid")
                     if tHrp and hum and hum.Health > 0 then
-                        myHrp.CFrame = tHrp.CFrame
-                        task.wait(0.12)
+                        myHrp.CFrame = CFrame.new(tHrp.Position)
+                        myHrp.Velocity = Vector3.zero
+                        task.wait(0.2)
+
+                        if knife.Parent ~= char then knife.Parent = char end
+                        local hum2 = char:FindFirstChildOfClass("Humanoid")
+                        if hum2 and hum2:GetEquippedTool() ~= knife then
+                            pcall(function() hum2:EquipTool(knife) end)
+                            task.wait(0.1)
+                        end
+
                         pcall(function() knife:Activate() end)
-                        task.wait(0.18)
+                        task.wait(0.15)
                         count = count + 1
                     end
                 end
             end
         end
         myHrp.CFrame = originalCF
+        local bp = LocalPlayer:FindFirstChildOfClass("Backpack")
+        if bp then pcall(function() knife.Parent = bp end) end
         Rayfield:Notify({ Title = "Kill All", Content = "Tentei matar " .. count .. " players", Duration = 4 })
     end)
 end
@@ -1246,6 +1327,9 @@ local function teleportToRole(roleName)
     Rayfield:Notify({ Title = "Teleporte", Content = roleName .. " nao encontrado", Duration = 3 })
 end
 
+-- ============================================================
+--  PERFORMANCE
+-- ============================================================
 local perfSaved = {}
 local savedMaterials = setmetatable({}, { __mode = "k" })
 local savedShadows = setmetatable({}, { __mode = "k" })
@@ -1352,6 +1436,9 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
+--  AUTO FARM
+-- ============================================================
 local CoinFarm = { Enabled = false, Speed = 0.4, MaxCoins = 40 }
 local coinAttempts = {}
 local coinBlacklist = {}
@@ -1487,6 +1574,9 @@ local function startCoinFarm()
     end)
 end
 
+-- ============================================================
+--  RENDERSTEPPED
+-- ============================================================
 RunService.RenderStepped:Connect(function()
     fovCircle.Visible = Config.Show_FOV
     if Config.Show_FOV then
@@ -1540,6 +1630,9 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
+--  ANTI-FLING
+-- ============================================================
 pcall(function()
     PhysicsService:RegisterCollisionGroup("MM2_Self")
     PhysicsService:RegisterCollisionGroup("MM2_Others")
@@ -1669,6 +1762,9 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
+-- ============================================================
+--  INVISIBLE MODE
+-- ============================================================
 local SeatInvisible = {}
 local invisMySeat = nil
 local invisActive = false
@@ -1750,6 +1846,9 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
+-- ============================================================
+--  TELEPORTES
+-- ============================================================
 local function teleportTo(position)
     local char = LocalPlayer.Character
     if not char then return end
@@ -1780,6 +1879,9 @@ local function findMapCenter()
     return Vector3.new(0, 10, 0)
 end
 
+-- ============================================================
+--  GRAB GUN
+-- ============================================================
 local grabbing = false
 local function grabGun()
     if grabbing then return false end
@@ -1877,7 +1979,9 @@ task.spawn(function()
     end
 end)
 
--- INTERFACE
+-- ============================================================
+--  INTERFACE
+-- ============================================================
 local Window = Rayfield:CreateWindow({
     Name = "MM2 Check Hub v3",
     LoadingTitle = "Carregando...",
@@ -1887,6 +1991,7 @@ local Window = Rayfield:CreateWindow({
     Theme = "DarkBlue",
 })
 
+-- Visual
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
     Name = "ESP Players (atraves das paredes)",
@@ -1910,6 +2015,7 @@ VisualTab:CreateToggle({
     Callback = function(v) Config.ESP_Gun = v end,
 })
 
+-- Visual+
 local VisualPlusTab = Window:CreateTab("Visual+", 4483362458)
 VisualPlusTab:CreateToggle({
     Name = "Coin ESP (moedas no mapa)",
@@ -1922,7 +2028,7 @@ VisualPlusTab:CreateToggle({
     Callback = function(v) Config.RadarHUD = v end,
 })
 VisualPlusTab:CreateToggle({
-    Name = "Hitbox Expander (aumenta hitbox)",
+    Name = "Hitbox Expander (visual)",
     CurrentValue = false,
     Callback = function(v) Config.HitboxExpander = v end,
 })
@@ -1944,6 +2050,7 @@ VisualPlusTab:CreateToggle({
     Callback = function(v) Config.LockCameraMurderer = v end,
 })
 
+-- Aimbot
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 AimbotTab:CreateToggle({ Name = "Aimbot por Role", CurrentValue = false, Callback = function(v) Config.Aimbot = v end })
 AimbotTab:CreateToggle({ Name = "Aimbot Instantaneo (snap)", CurrentValue = false, Callback = function(v) Config.Aimbot_Instant = v end })
@@ -1957,8 +2064,9 @@ AimbotTab:CreateToggle({ Name = "Trigger Instantaneo", CurrentValue = false, Cal
 AimbotTab:CreateToggle({ Name = "Trigger Team Check", CurrentValue = false, Callback = function(v) Config.TriggerBot_TeamCheck = v end })
 AimbotTab:CreateToggle({ Name = "Trigger Wall Check", CurrentValue = false, Callback = function(v) Config.TriggerBot_WallCheck = v end })
 AimbotTab:CreateSlider({ Name = "Trigger Bot FOV", Range = {10, 300}, Increment = 5, Suffix = " px", CurrentValue = 40, Callback = function(v) Config.TriggerBot_FOV = v end })
-AimbotTab:CreateSlider({ Name = "Trigger Delay", Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.08, Callback = function(v) Config.TriggerBot_Delay = v end })
+AimbotTab:CreateSlider({ Name = "Trigger Delay", Range = {0, 0.5}, Increment = 0.01, CurrentValue = 0.25, Callback = function(v) Config.TriggerBot_Delay = v end })
 
+-- Murder
 local MurderTab = Window:CreateTab("Murder", 4483362458)
 MurderTab:CreateButton({
     Name = "⚔️ KILL ALL (matar todos)",
@@ -1970,11 +2078,6 @@ MurderTab:CreateToggle({
     Callback = function(v) Config.AutoKill_Murder = v end,
 })
 MurderTab:CreateToggle({
-    Name = "Auto Equip Faca",
-    CurrentValue = true,
-    Callback = function(v) Config.AutoKill_AutoEquip = v end,
-})
-MurderTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = true,
     Callback = function(v) Config.AutoKill_WallCheck = v end,
@@ -1982,13 +2085,13 @@ MurderTab:CreateToggle({
 MurderTab:CreateSlider({
     Name = "Alcance da Faca",
     Range = {5, 50}, Increment = 1, Suffix = " studs",
-    CurrentValue = 15,
+    CurrentValue = 25,
     Callback = function(v) Config.AutoKill_Range = v end,
 })
 MurderTab:CreateSlider({
     Name = "Delay entre acoes",
     Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
-    CurrentValue = 0.35,
+    CurrentValue = 0.5,
     Callback = function(v) Config.AutoKill_Delay = v end,
 })
 MurderTab:CreateButton({
@@ -2000,6 +2103,7 @@ MurderTab:CreateButton({
     Callback = function() teleportToRole("Sheriff") end,
 })
 
+-- Sheriff
 local SheriffTab = Window:CreateTab("Sheriff", 4483362458)
 SheriffTab:CreateButton({
     Name = "🔫 Grab Gun (manual)",
@@ -2028,11 +2132,6 @@ SheriffTab:CreateToggle({
     Callback = function(v) Config.AutoKill_Sheriff = v end,
 })
 SheriffTab:CreateToggle({
-    Name = "Auto Equip Arma",
-    CurrentValue = true,
-    Callback = function(v) Config.AutoKill_AutoEquip = v end,
-})
-SheriffTab:CreateToggle({
     Name = "Wall Check",
     CurrentValue = true,
     Callback = function(v) Config.AutoKill_WallCheck = v end,
@@ -2046,7 +2145,7 @@ SheriffTab:CreateSlider({
 SheriffTab:CreateSlider({
     Name = "Delay entre tiros",
     Range = {0.1, 1.0}, Increment = 0.05, Suffix = " s",
-    CurrentValue = 0.35,
+    CurrentValue = 0.5,
     Callback = function(v) Config.AutoKill_Delay = v end,
 })
 SheriffTab:CreateButton({
@@ -2054,6 +2153,7 @@ SheriffTab:CreateButton({
     Callback = function() teleportToRole("Murderer") end,
 })
 
+-- Auto Farm
 local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
 FarmTab:CreateToggle({
     Name = "Auto Farm Coins",
@@ -2090,6 +2190,7 @@ FarmTab:CreateButton({
     end,
 })
 
+-- Player
 local MoveTab = Window:CreateTab("Player", 4483362458)
 MoveTab:CreateSlider({
     Name = "Speed", Range = {16, 200}, Increment = 1, Suffix = " studs", CurrentValue = 16,
@@ -2148,6 +2249,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({ Name = "Invisible Y (altura)", Range = {1000, 50000}, Increment = 100, CurrentValue = 5000, Callback = function(v) Config.InvisibleY = v end })
 
+-- Performance
 local PerfTab = Window:CreateTab("Performance", 4483362458)
 PerfTab:CreateToggle({ Name = "Remover Neblina (No Fog)", CurrentValue = false, Callback = function(v) Config.Perf_NoFog = v end })
 PerfTab:CreateToggle({ Name = "Remover Sombras (No Shadows)", CurrentValue = false, Callback = function(v) Config.Perf_NoShadow = v end })
@@ -2182,6 +2284,7 @@ PerfTab:CreateButton({
     end,
 })
 
+-- Extras
 local ExtrasTab = Window:CreateTab("Extras", 4483362458)
 ExtrasTab:CreateToggle({
     Name = "Anti-Kick (bloqueia SetCore)",
@@ -2233,6 +2336,7 @@ ExtrasTab:CreateButton({
     Callback = function() serverHop() end,
 })
 
+-- Teleporte
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
     Name = "Teleport to Obby",
@@ -2254,6 +2358,7 @@ TpTab:CreateButton({
     end,
 })
 
+-- Protecao
 local ProtTab = Window:CreateTab("Protecao", 4483362458)
 ProtTab:CreateToggle({
     Name = "Anti-Fling (sem colisao com players)",
@@ -2269,6 +2374,7 @@ ProtTab:CreateToggle({
     end,
 })
 
+-- Keybinds
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -2336,7 +2442,7 @@ end)
 
 Rayfield:Notify({
     Title = "MM2 Check Hub v3",
-    Content = "Menu: RightCtrl | Teclas: F=Fly N=Noclip G=GrabGun J=Jump V=AntiVoid I=Invisible H=Hitbox C=CoinESP",
+    Content = "Menu: RightCtrl | F=Fly N=Noclip G=GrabGun J=Jump V=AntiVoid I=Invisible H=Hitbox C=CoinESP",
     Duration = 7,
 })
 
