@@ -1,6 +1,5 @@
 -- ============================================================
---  MM2 CHECK HUB v3 - COMPLETO
---  ESP otimizado • Trigger FOV visível • Auto Farm Coins
+--  MM2 CHECK HUB v3 - ULTRA OTIMIZADO
 -- ============================================================
 local okLoad, errLoad = pcall(function()
 
@@ -37,8 +36,6 @@ local Config = {
     AutoKill_Delay = 0.35,
     AutoKill_WallCheck = true,
     AutoKill_AutoEquip = true,
-    AutoKill_KeepEquipped = true,
-    AutoKill_EquipCheckDelay = 0.15,
     Speed = 16,
     JumpPower = 50,
     InfiniteJump = false,
@@ -56,9 +53,12 @@ local Config = {
 }
 
 -- ============================================================
---  ROLE
+--  ROLE COM CACHE (evita recalcular a cada frame)
 -- ============================================================
-local function getRole(player)
+local roleCache = {}
+local ROLE_CACHE_TIME = 0.5
+
+local function getRoleRaw(player)
     local char = player.Character
     if not char then return "Innocent" end
 
@@ -71,15 +71,25 @@ local function getRole(player)
         if backpack:FindFirstChild("Gun") then return "Sheriff" end
     end
 
-    for _, obj in ipairs(char:GetDescendants()) do
+    for _, obj in ipairs(char:GetChildren()) do
         if obj:IsA("Tool") then
             local n = obj.Name:lower()
             if n:find("knife") then return "Murderer" end
             if n:find("gun") then return "Sheriff" end
         end
     end
-
     return "Innocent"
+end
+
+local function getRole(player)
+    local c = roleCache[player]
+    local now = tick()
+    if c and now - c.time < ROLE_CACHE_TIME then
+        return c.role
+    end
+    local r = getRoleRaw(player)
+    roleCache[player] = { role = r, time = now }
+    return r
 end
 
 local function getRoleColor(role)
@@ -87,6 +97,8 @@ local function getRoleColor(role)
     if role == "Sheriff" then return Config.ESP_Color_Sheriff end
     return Config.ESP_Color_Innocent
 end
+
+Players.PlayerRemoving:Connect(function(p) roleCache[p] = nil end)
 
 -- ============================================================
 --  FOV CIRCLES
@@ -97,13 +109,11 @@ fovGui.IgnoreGuiInset = true
 fovGui.ResetOnSpawn = false
 pcall(function() fovGui.Parent = game.CoreGui end)
 
--- Aimbot FOV (azul)
 local fovCircle = Instance.new("Frame")
 fovCircle.Size = UDim2.new(0, Config.Aimbot_FOV * 2, 0, Config.Aimbot_FOV * 2)
 fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 fovCircle.BackgroundTransparency = 1
-fovCircle.BorderSizePixel = 0
 fovCircle.Parent = fovGui
 
 local fovStroke = Instance.new("UIStroke")
@@ -116,13 +126,11 @@ local fovCorner = Instance.new("UICorner")
 fovCorner.CornerRadius = UDim.new(1, 0)
 fovCorner.Parent = fovCircle
 
--- Trigger Bot FOV (vermelho)
 local trigCircle = Instance.new("Frame")
 trigCircle.Size = UDim2.new(0, Config.TriggerBot_FOV * 2, 0, Config.TriggerBot_FOV * 2)
 trigCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 trigCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 trigCircle.BackgroundTransparency = 1
-trigCircle.BorderSizePixel = 0
 trigCircle.Parent = fovGui
 
 local trigStroke = Instance.new("UIStroke")
@@ -135,12 +143,17 @@ local trigCorner = Instance.new("UICorner")
 trigCorner.CornerRadius = UDim.new(1, 0)
 trigCorner.Parent = trigCircle
 
+local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end)
+
 local function isInFOV(worldPos, fovPixels)
     local sp, onScreen = Camera:WorldToScreenPoint(worldPos)
-    if not onScreen then return false, nil end
-    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local diff = Vector2.new(sp.X, sp.Y) - center
-    return diff.Magnitude <= fovPixels, sp
+    if not onScreen then return false end
+    local dx = sp.X - screenCenter.X
+    local dy = sp.Y - screenCenter.Y
+    return (dx*dx + dy*dy) <= (fovPixels * fovPixels)
 end
 
 -- ============================================================
@@ -195,14 +208,13 @@ local function hasLineOfSight(originPos, targetPos, targetChar)
 end
 
 -- ============================================================
---  ESP OTIMIZADO
+--  ESP (loop próprio, throttle alto)
 -- ============================================================
 local espCache = {}
 local nameCache = {}
 
-local ESP_UPDATE_INTERVAL = 0.15
-local ESP_MAX_DISTANCE = 500
-local lastESPUpdate = 0
+local ESP_UPDATE_INTERVAL = 0.25
+local ESP_MAX_DISTANCE = 400
 
 local function removeHighlight(player)
     if espCache[player] then espCache[player]:Destroy() espCache[player] = nil end
@@ -219,8 +231,8 @@ local function createHighlight(player)
     hl.Name = "MM2_ESP"
     hl.Adornee = char
     hl.DepthMode = Enum.HighlightDepthMode.Occluded
-    hl.FillTransparency = 0.65
-    hl.OutlineTransparency = 0.2
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0.3
     local c = getRoleColor(getRole(player))
     hl.FillColor = c
     hl.OutlineColor = c
@@ -237,10 +249,11 @@ local function createNameTag(player)
 
     local bg = Instance.new("BillboardGui")
     bg.Name = "MM2_NameTag"
-    bg.Size = UDim2.new(0, 180, 0, 26)
+    bg.Size = UDim2.new(0, 160, 0, 22)
     bg.StudsOffset = Vector3.new(0, 3, 0)
     bg.Adornee = head
     bg.AlwaysOnTop = true
+    bg.MaxDistance = ESP_MAX_DISTANCE
     bg.Parent = head
 
     local label = Instance.new("TextLabel")
@@ -257,10 +270,6 @@ local function createNameTag(player)
 end
 
 local function updateESP()
-    local now = tick()
-    if now - lastESPUpdate < ESP_UPDATE_INTERVAL then return end
-    lastESPUpdate = now
-
     local myChar = LocalPlayer.Character
     local myPos = myChar and myChar:FindFirstChild("HumanoidRootPart")
         and myChar.HumanoidRootPart.Position or nil
@@ -272,7 +281,10 @@ local function updateESP()
 
             local tooFar = false
             if myPos and hrp then
-                if (hrp.Position - myPos).Magnitude > ESP_MAX_DISTANCE then
+                local dx = hrp.Position.X - myPos.X
+                local dy = hrp.Position.Y - myPos.Y
+                local dz = hrp.Position.Z - myPos.Z
+                if (dx*dx + dy*dy + dz*dz) > (ESP_MAX_DISTANCE * ESP_MAX_DISTANCE) then
                     tooFar = true
                 end
             end
@@ -283,8 +295,10 @@ local function updateESP()
                 end
                 if espCache[player] then
                     local c = getRoleColor(getRole(player))
-                    espCache[player].FillColor = c
-                    espCache[player].OutlineColor = c
+                    if espCache[player].FillColor ~= c then
+                        espCache[player].FillColor = c
+                        espCache[player].OutlineColor = c
+                    end
                 end
             else
                 removeHighlight(player)
@@ -293,10 +307,10 @@ local function updateESP()
             if Config.ESP_Name and char and not tooFar then
                 if not nameCache[player] then createNameTag(player) end
                 if nameCache[player] and nameCache[player].Adornee then
+                    local c = getRoleColor(getRole(player))
                     local lbl = nameCache[player]:FindFirstChildOfClass("TextLabel")
-                    if lbl then
-                        lbl.Text = player.Name
-                        lbl.TextColor3 = getRoleColor(getRole(player))
+                    if lbl and lbl.TextColor3 ~= c then
+                        lbl.TextColor3 = c
                     end
                 end
             else
@@ -320,7 +334,7 @@ local function updateGunESP()
             gunESP.Adornee = gun
             gunESP.FillColor = Color3.fromRGB(255, 255, 0)
             gunESP.OutlineColor = Color3.fromRGB(255, 255, 0)
-            gunESP.FillTransparency = 0.3
+            gunESP.FillTransparency = 0.4
             gunESP.DepthMode = Enum.HighlightDepthMode.Occluded
             gunESP.Parent = gun
         end
@@ -345,17 +359,19 @@ local function isTargetValid(targetPlayer, useTeamCheck)
 end
 
 local function getTargetByRole(fovLimit)
-    local best, bestDist = nil, math.huge
+    local best, bestDistSq = nil, math.huge
+    local fovSq = fovLimit * fovLimit
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local char = player.Character
             if char and char:FindFirstChild("Head") and isTargetValid(player, false) then
-                local inFov, sp = isInFOV(char.Head.Position, fovLimit)
-                if inFov then
-                    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                    local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                    if d < bestDist then
-                        bestDist = d
+                local sp, onScreen = Camera:WorldToScreenPoint(char.Head.Position)
+                if onScreen then
+                    local dx = sp.X - screenCenter.X
+                    local dy = sp.Y - screenCenter.Y
+                    local dSq = dx*dx + dy*dy
+                    if dSq <= fovSq and dSq < bestDistSq then
+                        bestDistSq = dSq
                         best = char
                     end
                 end
@@ -381,8 +397,7 @@ local function handleTriggerBot()
             local tChar = player.Character
             if tChar and tChar:FindFirstChild("Head") then
                 if not Config.TriggerBot_TeamCheck or isTargetValid(player, true) then
-                    local inFov = isInFOV(tChar.Head.Position, Config.TriggerBot_FOV)
-                    if inFov then
+                    if isInFOV(tChar.Head.Position, Config.TriggerBot_FOV) then
                         pcall(function() tool:Activate() end)
                         lastFire = now
                         break
@@ -400,16 +415,19 @@ local function findMurderer()
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return nil end
     local myHead = myChar.Head.Position
-    local best, bestDist = nil, math.huge
+    local best, bestDistSq = nil, math.huge
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local char = player.Character
             if char and char:FindFirstChild("Head") and getRole(player) == "Murderer" then
                 local targetPos = char.Head.Position
-                local dist = (targetPos - myHead).Magnitude
-                if dist < bestDist then
+                local dx = targetPos.X - myHead.X
+                local dy = targetPos.Y - myHead.Y
+                local dz = targetPos.Z - myHead.Z
+                local dSq = dx*dx + dy*dy + dz*dz
+                if dSq < bestDistSq then
                     if not Config.AutoKill_WallCheck or hasLineOfSight(myHead, targetPos, char) then
-                        bestDist = dist
+                        bestDistSq = dSq
                         best = char
                     end
                 end
@@ -423,18 +441,20 @@ local function findNearestEnemy(maxRange)
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("Head") then return nil end
     local myHead = myChar.Head.Position
-    local closest, closestDist = nil, maxRange
+    local closest, closestDistSq = nil, maxRange * maxRange
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local char = player.Character
             if char and char:FindFirstChild("Head") then
-                local role = getRole(player)
-                if role ~= "Murderer" then
+                if getRole(player) ~= "Murderer" then
                     local targetPos = char.Head.Position
-                    local dist = (targetPos - myHead).Magnitude
-                    if dist <= closestDist then
+                    local dx = targetPos.X - myHead.X
+                    local dy = targetPos.Y - myHead.Y
+                    local dz = targetPos.Z - myHead.Z
+                    local dSq = dx*dx + dy*dy + dz*dz
+                    if dSq <= closestDistSq then
                         if not Config.AutoKill_WallCheck or hasLineOfSight(myHead, targetPos, char) then
-                            closestDist = dist
+                            closestDistSq = dSq
                             closest = char
                         end
                     end
@@ -442,7 +462,7 @@ local function findNearestEnemy(maxRange)
             end
         end
     end
-    return closest, closestDist
+    return closest
 end
 
 local lastAutoKill = 0
@@ -501,7 +521,7 @@ local function handleAutoKill()
 end
 
 -- ============================================================
---  INFINITE JUMP / ANTI VOID
+--  INFINITE JUMP
 -- ============================================================
 UserInputService.JumpRequest:Connect(function()
     if Config.InfiniteJump then
@@ -513,25 +533,81 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
-local function handleAntiVoid()
-    if not Config.AntiVoid then return end
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if hrp and hrp.Position.Y < -50 then
-        hrp.CFrame = CFrame.new(hrp.Position.X, 50, hrp.Position.Z)
-        hrp.Velocity = Vector3.new(0, 0, 0)
+-- ============================================================
+--  ANTI VOID / NOCLIP (loops throttle)
+-- ============================================================
+task.spawn(function()
+    while task.wait(0.3) do
+        if Config.AntiVoid then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    local hrp = char:FindFirstChild("HumanoidRootPart")
+                    if hrp and hrp.Position.Y < -50 then
+                        hrp.CFrame = CFrame.new(hrp.Position.X, 50, hrp.Position.Z)
+                        hrp.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end)
+        end
     end
-end
+end)
+
+task.spawn(function()
+    while task.wait(0.4) do
+        if Config.Noclip then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    for _, p in ipairs(char:GetDescendants()) do
+                        if p:IsA("BasePart") and p.CanCollide then
+                            p.CanCollide = false
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
 
 -- ============================================================
---  AUTO FARM DE MOEDAS
+--  TRIGGER BOT / AUTO KILL (loops throttle, fora do RenderStepped)
 -- ============================================================
-local CoinFarm = {
-    Enabled = false,
-    Speed = 0.3,
-    MaxCoins = 40,
-}
+task.spawn(function()
+    while task.wait(0.05) do
+        if Config.TriggerBot then
+            pcall(handleTriggerBot)
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if Config.AutoKill then
+            pcall(handleAutoKill)
+        end
+    end
+end)
+
+-- ============================================================
+--  ESP LOOPS (throttle alto, fora do RenderStepped)
+-- ============================================================
+task.spawn(function()
+    while task.wait(ESP_UPDATE_INTERVAL) do
+        pcall(updateESP)
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(updateGunESP)
+    end
+end)
+
+-- ============================================================
+--  AUTO FARM
+-- ============================================================
+local CoinFarm = { Enabled = false, Speed = 0.3, MaxCoins = 40 }
 
 local function findCoins()
     local coins = {}
@@ -553,9 +629,7 @@ local function findCoins()
                     elseif obj:IsA("Model") and obj.PrimaryPart then
                         pos = obj.PrimaryPart.Position
                     end
-                    if pos then
-                        table.insert(coins, {obj = obj, pos = pos})
-                    end
+                    if pos then table.insert(coins, { obj = obj, pos = pos }) end
                 end
             end
         end
@@ -584,12 +658,11 @@ local function startCoinFarm()
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if not hum or hum.Health <= 0 then return end
 
-                local currentCoins = getMyCoinCount()
-                if currentCoins >= CoinFarm.MaxCoins then
+                if getMyCoinCount() >= CoinFarm.MaxCoins then
                     CoinFarm.Enabled = false
                     Rayfield:Notify({
                         Title = "Auto Farm",
-                        Content = "Limite de " .. CoinFarm.MaxCoins .. " moedas atingido! Desligando...",
+                        Content = "Limite atingido! Desligando...",
                         Duration = 5,
                     })
                     return
@@ -602,11 +675,14 @@ local function startCoinFarm()
                 if not myHrp then return end
                 local myPos = myHrp.Position
 
-                local closest, closestDist = nil, math.huge
+                local closest, closestDistSq = nil, math.huge
                 for _, c in ipairs(coins) do
-                    local d = (c.pos - myPos).Magnitude
-                    if d < closestDist then
-                        closestDist = d
+                    local dx = c.pos.X - myPos.X
+                    local dy = c.pos.Y - myPos.Y
+                    local dz = c.pos.Z - myPos.Z
+                    local dSq = dx*dx + dy*dy + dz*dz
+                    if dSq < closestDistSq then
+                        closestDistSq = dSq
                         closest = c
                     end
                 end
@@ -623,64 +699,59 @@ local function startCoinFarm()
 end
 
 -- ============================================================
---  LOOP PRINCIPAL
+--  RENDERSTEPPED (SÓ AIMBOT + FLY + FOV)
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    pcall(handleTriggerBot)
-    pcall(handleAntiVoid)
-    pcall(handleAutoKill)
-
-    -- FOV do Aimbot
+    -- FOV visual
     fovCircle.Visible = Config.Show_FOV
     if Config.Show_FOV then
-        fovCircle.Size = UDim2.new(0, Config.Aimbot_FOV * 2, 0, Config.Aimbot_FOV * 2)
-    end
-
-    -- FOV do Trigger Bot
-    trigCircle.Visible = Config.TriggerBot and Config.Show_FOV
-    if trigCircle.Visible then
-        trigCircle.Size = UDim2.new(0, Config.TriggerBot_FOV * 2, 0, Config.TriggerBot_FOV * 2)
-    end
-
-    if Config.Aimbot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local target = getTargetByRole(Config.Aimbot_FOV)
-        if target and target:FindFirstChild("Head") then
-            local camPos = Camera.CFrame.Position
-            local desired = CFrame.lookAt(camPos, target.Head.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(desired, Config.Aimbot_Smoothness)
+        local sz = Config.Aimbot_FOV * 2
+        if fovCircle.AbsoluteSize.X ~= sz then
+            fovCircle.Size = UDim2.new(0, sz, 0, sz)
         end
+        trigCircle.Visible = Config.TriggerBot
+        if trigCircle.Visible then
+            local tsz = Config.TriggerBot_FOV * 2
+            if trigCircle.AbsoluteSize.X ~= tsz then
+                trigCircle.Size = UDim2.new(0, tsz, 0, tsz)
+            end
+        end
+    else
+        trigCircle.Visible = false
     end
 
-    if Config.Fly and LocalPlayer.Character then
-        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dir = Vector3.new()
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
-            if dir.Magnitude > 0 then
-                hrp.Velocity = dir.Unit * Config.FlySpeed
-            else
-                hrp.Velocity = Vector3.new(0, 0, 0)
+    -- Aimbot (precisa ser por frame pra ser suave)
+    if Config.Aimbot then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local target = getTargetByRole(Config.Aimbot_FOV)
+            if target and target:FindFirstChild("Head") then
+                local desired = CFrame.lookAt(Camera.CFrame.Position, target.Head.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(desired, Config.Aimbot_Smoothness)
             end
         end
     end
 
-    if Config.Noclip and LocalPlayer.Character then
-        for _, p in ipairs(LocalPlayer.Character:GetDescendants()) do
-            if p:IsA("BasePart") and p.CanCollide then p.CanCollide = false end
+    -- Fly
+    if Config.Fly then
+        local char = LocalPlayer.Character
+        if char then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dir = Vector3.new()
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0) end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.new(0, 1, 0) end
+                if dir.Magnitude > 0 then
+                    hrp.Velocity = dir.Unit * Config.FlySpeed
+                else
+                    hrp.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
         end
-    end
-end)
-
--- Loop separado do ESP (mais leve)
-task.spawn(function()
-    while task.wait(0.15) do
-        pcall(updateESP)
-        pcall(updateGunESP)
     end
 end)
 
@@ -867,35 +938,6 @@ task.spawn(function()
 end)
 
 -- ============================================================
---  GUN DROP NOTIFIER
--- ============================================================
-local lastNotify = 0
-local function notifyGunDrop()
-    if tick() - lastNotify < 3 then return end
-    lastNotify = tick()
-    if not Config.GunDropNotify then return end
-
-    pcall(function()
-        Rayfield:Notify({
-            Title = "Gun Dropada!",
-            Content = "A arma do Sheriff caiu. Use Grab Gun!",
-            Duration = 5,
-        })
-    end)
-
-    if Config.GunDropNotify_Sound then
-        pcall(function()
-            local s = Instance.new("Sound")
-            s.SoundId = "rbxassetid://4590662766"
-            s.Volume = 0.5
-            s.Parent = SoundService
-            s:Play()
-            task.delay(2, function() s:Destroy() end)
-        end)
-    end
-end
-
--- ============================================================
 --  INTERFACE
 -- ============================================================
 local Window = Rayfield:CreateWindow({
@@ -906,7 +948,6 @@ local Window = Rayfield:CreateWindow({
     Theme = "DarkBlue",
 })
 
--- ---------- Visual ----------
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 VisualTab:CreateToggle({
     Name = "ESP Players",
@@ -930,7 +971,6 @@ VisualTab:CreateToggle({
     Callback = function(v) Config.ESP_Gun = v end,
 })
 
--- ---------- Aimbot ----------
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 AimbotTab:CreateToggle({
     Name = "Aimbot por Role",
@@ -975,7 +1015,6 @@ AimbotTab:CreateSlider({
     Callback = function(v) Config.TriggerBot_Delay = v end,
 })
 
--- ---------- Auto Kill ----------
 local AutoKillTab = Window:CreateTab("Auto Kill", 4483362458)
 AutoKillTab:CreateToggle({
     Name = "Auto Kill",
@@ -1011,7 +1050,6 @@ AutoKillTab:CreateToggle({
     Callback = function(v) Config.AutoKill_AutoEquip = v end,
 })
 
--- ---------- Gun ----------
 local GunTab = Window:CreateTab("Gun", 4483362458)
 GunTab:CreateButton({
     Name = "Grab Gun (manual)",
@@ -1030,7 +1068,6 @@ GunTab:CreateToggle({
     Callback = function(v) Config.AutoGrabGun = v end,
 })
 
--- ---------- Auto Farm ----------
 local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
 FarmTab:CreateToggle({
     Name = "Auto Farm Coins",
@@ -1070,7 +1107,6 @@ FarmTab:CreateButton({
     end,
 })
 
--- ---------- Movimento ----------
 local MoveTab = Window:CreateTab("Movimento", 4483362458)
 MoveTab:CreateSlider({
     Name = "Speed",
@@ -1141,7 +1177,6 @@ MoveTab:CreateToggle({
     end,
 })
 
--- ---------- Teleporte ----------
 local TpTab = Window:CreateTab("Teleporte", 4483362458)
 TpTab:CreateButton({
     Name = "Teleport to Obby",
@@ -1163,7 +1198,6 @@ TpTab:CreateButton({
     end,
 })
 
--- ---------- Protecao ----------
 local ProtTab = Window:CreateTab("Protecao", 4483362458)
 ProtTab:CreateToggle({
     Name = "Anti-Fling",
@@ -1180,18 +1214,8 @@ Rayfield:Notify({
     Duration = 5,
 })
 
-end) -- fim do pcall
+end)
 
 if not okLoad then
-    warn("========================================")
-    warn("[MM2 Hub] ERRO AO CARREGAR:")
-    warn(tostring(errLoad))
-    warn("========================================")
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Erro no Script",
-            Text = tostring(errLoad),
-            Duration = 15,
-        })
-    end)
+    warn("[MM2 Hub] ERRO:", tostring(errLoad))
 end
