@@ -1,4 +1,4 @@
--- MM2 Hub v3 + YARHM (corrigido)
+-- MM2 Hub v3 + YARHM (5 abas)
 local PLACE_IDS = {142823291, 1990777535, 321010323}
 local function isMM2()
     for _, id in ipairs(PLACE_IDS) do if game.PlaceId == id then return true end end
@@ -30,14 +30,8 @@ end
 
 local okLoad, errLoad = pcall(function()
 
--- ============================================================
--- LOAD RAYFIELD
--- ============================================================
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- ============================================================
--- SERVICES
--- ============================================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -47,50 +41,37 @@ local TweenService = game:GetService("TweenService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ============================================================
--- CONFIG
--- ============================================================
 local Config = {
-    -- ESP
     ESP_Players=false, ESP_Name=false, ESP_Gun=false, ESP_Coin=false,
     ESP_CoinMaxDist=150, ESP_GunMaxDist=500,
     ESP_Color_Innocent=Color3.fromRGB(0,255,0),
     ESP_Color_Sheriff=Color3.fromRGB(0,150,255),
     ESP_Color_Murderer=Color3.fromRGB(255,0,0),
-    -- Aimbot / Trigger
     Aimbot=false, Aimbot_Smoothness=0.2, Aimbot_FOV=150,
     Aimbot_WallCheck=false, Aimbot_TeamCheck=false, Aimbot_Instant=false,
     Show_FOV=true,
     TriggerBot=false, TriggerBot_TeamCheck=false, TriggerBot_Delay=0.25,
     TriggerBot_FOV=40, TriggerBot_WallCheck=false, TriggerBot_Instant=false,
-    -- Auto Kill
     AutoKill_Murder=false, AutoKill_Sheriff=false, AutoKill_Range=25,
     AutoKill_GunRange=500, AutoKill_Delay=0.5, AutoKill_WallCheck=true,
-    -- Player
     Speed=16, JumpPower=50, InfiniteJump=false, InfJumpOnlyTwo=false,
     Fly=false, FlySpeed=50, OPFly=false, OPFlySpeed=50,
     Noclip=false, AntiVoid=false, AntiFling=false,
     Invisible=false, InvisibleY=5000,
-    -- Gun
     AutoGrabGun=false, AutoGrabGun_Delay=1.0,
     AutoGetDroppedGun=false, GunDropTakeExp=false,
-    -- Performance
     Perf_NoFog=false, Perf_NoShadow=false, Perf_SmoothTexture=false, Perf_FullBright=false,
-    -- Extras
     AntiKick=false, AntiRagdoll=false, KillNotifier=false, AutoDodge=false,
     HitboxExpander=false, HitboxSize=5, HitboxMaxDist=200, HitboxAggressive=false,
     RadarHUD=false, AntiAFK=false, MurdererAlert=false, MurdererAlertRange=80,
     LockCameraMurderer=false,
-    -- YARHM extras
     LoopWS_FOV=false, LoopWS=16, LoopFOV=70, WSInc=2,
     CtrlClickTP=false, AutoKnifeThrow=false, SpawnKnifeNearPlayer=false,
     IgnoreKnifeThrows=false, InstakillShoot=false,
     FlingTarget=nil,
 }
 
--- ============================================================
--- FIND SHERIFF / MURDERER (declarado ANTES de usar)
--- ============================================================
+-- ============ FINDERS ============
 local function findSheriff()
     for _, p in ipairs(Players:GetPlayers()) do
         local bp = p:FindFirstChildOfClass("Backpack")
@@ -103,15 +84,6 @@ local function findMurderer()
         local bp = p:FindFirstChildOfClass("Backpack")
         if bp and bp:FindFirstChild("Knife") then return p end
         if p.Character and p.Character:FindFirstChild("Knife") then return p end
-    end
-end
-local function findSheriffNotMe()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local bp = p:FindFirstChildOfClass("Backpack")
-            if bp and bp:FindFirstChild("Gun") then return p end
-            if p.Character and p.Character:FindFirstChild("Gun") then return p end
-        end
     end
 end
 local function findNearestPlayer()
@@ -131,9 +103,7 @@ local function findNearestPlayer()
     return best
 end
 
--- ============================================================
--- OP FLY (YARHM)
--- ============================================================
+-- ============ OP FLY ============
 local FlyUtil = {}
 do
     local FLY_MAX = 50
@@ -142,7 +112,6 @@ do
     local cur = 0
     local dir = Vector3.new()
     local gyro, vel, conn
-
     local function flyStop()
         if conn then conn:Disconnect(); conn = nil end
         if gyro then gyro:Destroy(); gyro = nil end
@@ -155,7 +124,6 @@ do
         active = false
         cur = 0
     end
-
     local function flyStep()
         local c = LocalPlayer.Character
         if not active or not c then FlyUtil:Stop() return end
@@ -185,7 +153,6 @@ do
         local pitch = -math.rad(dot * lean)
         gyro.CFrame = CFrame.new(hrp.Position, hrp.Position + look) * CFrame.Angles(pitch, 0, 0)
     end
-
     function FlyUtil:Start()
         if active then return end
         local c = LocalPlayer.Character; if not c then return end
@@ -212,9 +179,7 @@ do
     LocalPlayer.CharacterRemoving:Connect(function() if active then FlyUtil:Stop() end end)
 end
 
--- ============================================================
--- ROLE DETECTION
--- ============================================================
+-- ============ ROLE DETECTION ============
 local roleCache, ROLE_TTL = {}, 0.5
 local MURD_KW = {"knife","dagger","blade"}
 local SHER_KW = {"gun","revolver","pistol"}
@@ -246,9 +211,7 @@ local function roleColor(r)
 end
 Players.PlayerRemoving:Connect(function(p) roleCache[p] = nil end)
 
--- ============================================================
--- FOV CIRCLES
--- ============================================================
+-- ============ FOV CIRCLES ============
 local fovGui = Instance.new("ScreenGui")
 fovGui.IgnoreGuiInset = true; fovGui.ResetOnSpawn = false
 pcall(function() fovGui.Parent = game.CoreGui end)
@@ -270,9 +233,7 @@ local function screenCenter()
     return Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 end
 
--- ============================================================
--- HELPERS
--- ============================================================
+-- ============ HELPERS ============
 local function findTool(char, kw, player)
     if not char then return nil end
     for _, t in ipairs(char:GetChildren()) do
@@ -311,9 +272,7 @@ local function myPos()
     return h and h.Position
 end
 
--- ============================================================
--- ATTACK
--- ============================================================
+-- ============ ATTACK ============
 local attacking = false
 local function attackWith(tool, tChar)
     if attacking or not tool then return end
@@ -341,9 +300,7 @@ local function attackWith(tool, tChar)
     end)
 end
 
--- ============================================================
--- GUN DROP DETECTION
--- ============================================================
+-- ============ GUN DROP ============
 local function isGunName(n)
     if not n then return false end
     n = tostring(n):lower()
@@ -405,9 +362,7 @@ local function findCoins()
     return out
 end
 
--- ============================================================
--- ESP PLAYERS
--- ============================================================
+-- ============ ESP PLAYERS ============
 local espCache, nameCache = {}, {}
 local ESP_MAX = 400
 local function dropHL(p) if espCache[p] then espCache[p]:Destroy(); espCache[p] = nil end end
@@ -486,7 +441,6 @@ local function updatePlayers()
     end
 end
 
--- ESP GUN / COIN
 local gunESPCache = {}
 local function updateGunESP()
     if not Config.ESP_Gun then
@@ -558,9 +512,7 @@ local function updateCoinESP()
     end
 end
 
--- ============================================================
--- AIMBOT / TRIGGER
--- ============================================================
+-- ============ AIMBOT / TRIGGER ============
 local function validTarget(p, tc)
     if p == LocalPlayer then return false end
     local my = getRole(LocalPlayer)
@@ -643,9 +595,7 @@ local function triggerTick()
     end
 end
 
--- ============================================================
--- AUTO KILL
--- ============================================================
+-- ============ AUTO KILL ============
 local function nearestMurderer()
     local myC = LocalPlayer.Character
     local h = myC and myC:FindFirstChild("Head")
@@ -726,9 +676,7 @@ local function autoKillTick()
     end
 end
 
--- ============================================================
--- INFINITE JUMP (YARHM)
--- ============================================================
+-- ============ INFINITE JUMP ============
 local infJumps = 0
 local infDeb = false
 local infLanded = true
@@ -762,9 +710,7 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ============================================================
--- HITBOX EXPANDER (YARHM)
--- ============================================================
+-- ============ HITBOX EXPANDER ============
 local hbSaved = setmetatable({}, {__mode = "k"})
 task.spawn(function()
     while task.wait(0.15) do
@@ -816,9 +762,7 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- FLING (YARHM)
--- ============================================================
+-- ============ FLING ============
 local function skidFling(targetPlayer)
     if not targetPlayer then return end
     local Character = LocalPlayer.Character
@@ -889,9 +833,7 @@ local function skidFling(targetPlayer)
     until (Root.Position - getgenv().OldPos.p).Magnitude < 25
 end
 
--- ============================================================
--- CTRL+Click TELEPORT
--- ============================================================
+-- ============ CTRL+Click TP ============
 local function rayHit()
     local m = LocalPlayer:GetMouse(); if not m then return end
     local ur = workspace.CurrentCamera:ScreenPointToRay(m.X, m.Y)
@@ -914,9 +856,7 @@ UserInputService.InputBegan:Connect(function(inp, proc)
     end
 end)
 
--- ============================================================
--- LOOP WS + FOV
--- ============================================================
+-- ============ LOOP WS + FOV ============
 RunService.RenderStepped:Connect(function()
     if Config.LoopWS_FOV then
         workspace.CurrentCamera.FieldOfView = Config.LoopFOV
@@ -926,9 +866,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ============================================================
--- SPECTATE / AIM LOCK
--- ============================================================
+-- ============ SPECTATE / AIM LOCK ============
 local spectateLoop = nil
 local function spectatePlayer(name)
     local list = Players:GetPlayers(); local idx = 1
@@ -970,9 +908,7 @@ local function startAimLock(name)
 end
 local function stopAimLock() if aimLockCon then aimLockCon:Disconnect(); aimLockCon = nil end end
 
--- ============================================================
--- FPS BOOST
--- ============================================================
+-- ============ FPS BOOST ============
 local function fpsBoost()
     local Ter = workspace:FindFirstChildOfClass('Terrain')
     if Ter then
@@ -996,9 +932,7 @@ local function fpsBoost()
     end
 end
 
--- ============================================================
--- LOOPS GERAIS
--- ============================================================
+-- ============ LOOPS GERAIS ============
 task.spawn(function()
     while task.wait(0.3) do
         if Config.AntiVoid then
@@ -1222,9 +1156,7 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- YARHM MM2 EXTRAS
--- ============================================================
+-- ============ MM2 EXTRAS ============
 local function shootMurderer(silent)
     if findSheriff() ~= LocalPlayer and not silent then
         Rayfield:Notify({Title = "Shoot", Content = "Voce nao e sheriff", Duration = 3})
@@ -1337,9 +1269,7 @@ workspace.DescendantAdded:Connect(function(ch)
     end
 end)
 
--- ============================================================
--- PERFORMANCE
--- ============================================================
+-- ============ PERFORMANCE ============
 local perfSaved = {}
 local matSaved = setmetatable({}, {__mode = "k"})
 local shadowSaved = setmetatable({}, {__mode = "k"})
@@ -1426,9 +1356,7 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- ANTI-FLING
--- ============================================================
+-- ============ ANTI-FLING ============
 pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Self") end)
 pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Others") end)
 pcall(function() PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false) end)
@@ -1503,9 +1431,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- ============================================================
--- INVISIBLE
--- ============================================================
+-- ============ INVISIBLE ============
 local invisSeat, invisOn, invisToggleUI = nil, false, nil
 local function invisCleanup()
     local e = workspace:FindFirstChild("invischair")
@@ -1554,9 +1480,7 @@ task.spawn(function()
     end
 end)
 
--- ============================================================
--- GRAB GUN
--- ============================================================
+-- ============ GRAB GUN ============
 local grabbing = false
 local function grabGun()
     if grabbing then return false end
@@ -1626,9 +1550,7 @@ LocalPlayer.CharacterAdded:Connect(function(ch)
     setupInfLand()
 end)
 
--- ============================================================
--- TELEPORT HELPERS
--- ============================================================
+-- ============ TELEPORT HELPERS ============
 local function teleportTo(pos)
     local c = LocalPlayer.Character
     local hrp = c and c:FindFirstChild("HumanoidRootPart")
@@ -1650,9 +1572,7 @@ local function mapCenter()
     return n > 0 and s / n or Vector3.new(0, 10, 0)
 end
 
--- ============================================================
--- RENDERSTEPPED
--- ============================================================
+-- ============ RENDERSTEPPED ============
 RunService.RenderStepped:Connect(function()
     fovCircle.Visible = Config.Show_FOV
     if Config.Show_FOV then
@@ -1698,7 +1618,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- UI
+-- UI — 5 ABAS (Visual | Aimbot | Combat | Player | Misc)
 -- ============================================================
 local Window = Rayfield:CreateWindow({
     Name = "MM2 Hub v3 + YARHM",
@@ -1709,6 +1629,7 @@ local Window = Rayfield:CreateWindow({
     Theme = "DarkBlue",
 })
 
+-- ABA 1: VISUAL
 local VTab = Window:CreateTab("Visual", 4483362458)
 VTab:CreateToggle({Name = "ESP Players", CurrentValue = false, Callback = function(v)
     Config.ESP_Players = v
@@ -1724,15 +1645,14 @@ VTab:CreateSlider({Name = "ESP Gun Dist", Range = {50, 2000}, Increment = 10, Su
 VTab:CreateToggle({Name = "ESP Coin", CurrentValue = false, Callback = function(v) Config.ESP_Coin = v end})
 VTab:CreateSlider({Name = "ESP Coin Dist", Range = {30, 500}, Increment = 10, Suffix = " studs",
     CurrentValue = 150, Callback = function(v) Config.ESP_CoinMaxDist = v end})
+VTab:CreateToggle({Name = "Radar HUD", CurrentValue = false, Callback = function(v) Config.RadarHUD = v end})
+VTab:CreateToggle({Name = "Hitbox Expander", CurrentValue = false, Callback = function(v) Config.HitboxExpander = v end})
+VTab:CreateToggle({Name = "Hitbox Agressivo", CurrentValue = false, Callback = function(v) Config.HitboxAggressive = v end})
+VTab:CreateSlider({Name = "Tamanho Hitbox", Range = {2, 20}, Increment = 1, CurrentValue = 5, Callback = function(v) Config.HitboxSize = v end})
+VTab:CreateSlider({Name = "Hitbox Range", Range = {50, 500}, Increment = 10, CurrentValue = 200, Callback = function(v) Config.HitboxMaxDist = v end})
+VTab:CreateToggle({Name = "Camera segue Murderer", CurrentValue = false, Callback = function(v) Config.LockCameraMurderer = v end})
 
-local VPTab = Window:CreateTab("Visual+", 4483362458)
-VPTab:CreateToggle({Name = "Radar HUD", CurrentValue = false, Callback = function(v) Config.RadarHUD = v end})
-VPTab:CreateToggle({Name = "Hitbox Expander", CurrentValue = false, Callback = function(v) Config.HitboxExpander = v end})
-VPTab:CreateToggle({Name = "Hitbox Agressivo", CurrentValue = false, Callback = function(v) Config.HitboxAggressive = v end})
-VPTab:CreateSlider({Name = "Tamanho Hitbox", Range = {2, 20}, Increment = 1, CurrentValue = 5, Callback = function(v) Config.HitboxSize = v end})
-VPTab:CreateSlider({Name = "Hitbox Range", Range = {50, 500}, Increment = 10, CurrentValue = 200, Callback = function(v) Config.HitboxMaxDist = v end})
-VPTab:CreateToggle({Name = "Camera segue Murderer", CurrentValue = false, Callback = function(v) Config.LockCameraMurderer = v end})
-
+-- ABA 2: AIMBOT
 local ATab = Window:CreateTab("Aimbot", 4483362458)
 ATab:CreateToggle({Name = "Aimbot", CurrentValue = false, Callback = function(v) Config.Aimbot = v end})
 ATab:CreateToggle({Name = "Aimbot Instantaneo", CurrentValue = false, Callback = function(v) Config.Aimbot_Instant = v end})
@@ -1751,8 +1671,9 @@ ATab:CreateInput({Name = "Aim Lock Target", CurrentValue = "", Placeholder = "No
     Callback = function(v) if v and v ~= "" then startAimLock(v) end end})
 ATab:CreateButton({Name = "Parar Aim Lock", Callback = function() stopAimLock() end})
 
-local MTab = Window:CreateTab("Murder", 4483362458)
-MTab:CreateButton({Name = "Kill All", Callback = function()
+-- ABA 3: COMBAT
+local CTab = Window:CreateTab("Combat", 4483362458)
+CTab:CreateButton({Name = "Kill All", Callback = function()
     local c = LocalPlayer.Character
     local k = findTool(c, "knife", LocalPlayer)
     if not k then Rayfield:Notify({Title = "Kill All", Content = "Precisa ser Murderer", Duration = 3}); return end
@@ -1782,20 +1703,20 @@ MTab:CreateButton({Name = "Kill All", Callback = function()
         Rayfield:Notify({Title = "Kill All", Content = "Tentei: "..n, Duration = 4})
     end)
 end})
-MTab:CreateToggle({Name = "Auto Kill Faca", CurrentValue = false, Callback = function(v) Config.AutoKill_Murder = v end})
-MTab:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) Config.AutoKill_WallCheck = v end})
-MTab:CreateSlider({Name = "Alcance Faca", Range = {5, 50}, Increment = 1, CurrentValue = 25, Callback = function(v) Config.AutoKill_Range = v end})
-MTab:CreateSlider({Name = "Delay", Range = {0.1, 1.0}, Increment = 0.05, CurrentValue = 0.5, Callback = function(v) Config.AutoKill_Delay = v end})
-MTab:CreateButton({Name = "Shoot murderer (1x)", Callback = function() task.spawn(function() shootMurderer() end) end})
-MTab:CreateToggle({Name = "Instakill (shoot)", CurrentValue = false, Callback = function(v) Config.InstakillShoot = v end})
-MTab:CreateButton({Name = "Knife throw to closest", Callback = function() task.spawn(function() knifeThrow() end) end})
-MTab:CreateToggle({Name = "Auto knife throw", CurrentValue = false, Callback = function(v) Config.AutoKnifeThrow = v end})
-MTab:CreateToggle({Name = "Spawn knife near target", CurrentValue = false, Callback = function(v) Config.SpawnKnifeNearPlayer = v end})
-MTab:CreateToggle({Name = "Murderer Kill Aura", CurrentValue = false, Callback = function(v) setKillAura(v) end})
-MTab:CreateButton({Name = "Kill closest (murderer)", Callback = function()
-    if findMurderer() ~= LocalPlayer then
-        Rayfield:Notify({Title = "Kill", Content = "Nao e murderer", Duration = 3}); return
-    end
+CTab:CreateToggle({Name = "Auto Kill Faca (murderer)", CurrentValue = false, Callback = function(v) Config.AutoKill_Murder = v end})
+CTab:CreateToggle({Name = "Auto Kill Arma (sheriff)", CurrentValue = false, Callback = function(v) Config.AutoKill_Sheriff = v end})
+CTab:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) Config.AutoKill_WallCheck = v end})
+CTab:CreateSlider({Name = "Alcance Faca", Range = {5, 50}, Increment = 1, CurrentValue = 25, Callback = function(v) Config.AutoKill_Range = v end})
+CTab:CreateSlider({Name = "Alcance Tiro", Range = {50, 1000}, Increment = 10, CurrentValue = 500, Callback = function(v) Config.AutoKill_GunRange = v end})
+CTab:CreateSlider({Name = "Delay", Range = {0.1, 1.0}, Increment = 0.05, CurrentValue = 0.5, Callback = function(v) Config.AutoKill_Delay = v end})
+CTab:CreateButton({Name = "Shoot murderer (1x)", Callback = function() task.spawn(function() shootMurderer() end) end})
+CTab:CreateToggle({Name = "Instakill (shoot)", CurrentValue = false, Callback = function(v) Config.InstakillShoot = v end})
+CTab:CreateButton({Name = "Knife throw to closest", Callback = function() task.spawn(function() knifeThrow() end) end})
+CTab:CreateToggle({Name = "Auto knife throw", CurrentValue = false, Callback = function(v) Config.AutoKnifeThrow = v end})
+CTab:CreateToggle({Name = "Spawn knife near target", CurrentValue = false, Callback = function(v) Config.SpawnKnifeNearPlayer = v end})
+CTab:CreateToggle({Name = "Murderer Kill Aura", CurrentValue = false, Callback = function(v) setKillAura(v) end})
+CTab:CreateButton({Name = "Kill closest (murderer)", Callback = function()
+    if findMurderer() ~= LocalPlayer then Rayfield:Notify({Title = "Kill", Content = "Nao e murderer", Duration = 3}); return end
     local c = LocalPlayer.Character
     if not c:FindFirstChild("Knife") then
         local bk = LocalPlayer.Backpack:FindFirstChild("Knife")
@@ -1806,14 +1727,11 @@ MTab:CreateButton({Name = "Kill closest (murderer)", Callback = function()
     if tH and c:FindFirstChild("HumanoidRootPart") then
         tH.Anchored = true
         tH.CFrame = c.HumanoidRootPart.CFrame + c.HumanoidRootPart.CFrame.LookVector * 2
-        task.wait(0.1)
-        c.Knife.Stab:FireServer("Slash")
+        task.wait(0.1); c.Knife.Stab:FireServer("Slash")
     end
 end})
-MTab:CreateButton({Name = "Kill EVERYONE (murderer)", Callback = function()
-    if findMurderer() ~= LocalPlayer then
-        Rayfield:Notify({Title = "Kill", Content = "Nao e murderer", Duration = 3}); return
-    end
+CTab:CreateButton({Name = "Kill EVERYONE (murderer)", Callback = function()
+    if findMurderer() ~= LocalPlayer then Rayfield:Notify({Title = "Kill", Content = "Nao e murderer", Duration = 3}); return end
     local c = LocalPlayer.Character
     if not c:FindFirstChild("Knife") then
         local bk = LocalPlayer.Backpack:FindFirstChild("Knife")
@@ -1822,31 +1740,23 @@ MTab:CreateButton({Name = "Kill EVERYONE (murderer)", Callback = function()
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
             local h = p.Character:FindFirstChild("HumanoidRootPart")
-            if h then
-                h.Anchored = true
-                h.CFrame = c.HumanoidRootPart.CFrame + c.HumanoidRootPart.CFrame.LookVector * 1
-            end
+            if h then h.Anchored = true; h.CFrame = c.HumanoidRootPart.CFrame + c.HumanoidRootPart.CFrame.LookVector * 1 end
         end
     end
     c.Knife.Stab:FireServer("Slash")
 end})
-MTab:CreateButton({Name = "Hold everyone hostage", Callback = function()
-    if findMurderer() ~= LocalPlayer then
-        Rayfield:Notify({Title = "Hold", Content = "Nao e murderer", Duration = 3}); return
-    end
+CTab:CreateButton({Name = "Hold everyone hostage", Callback = function()
+    if findMurderer() ~= LocalPlayer then Rayfield:Notify({Title = "Hold", Content = "Nao e murderer", Duration = 3}); return end
     local c = LocalPlayer.Character
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
             local h = p.Character:FindFirstChild("HumanoidRootPart")
-            if h then
-                h.Anchored = true
-                h.CFrame = c.HumanoidRootPart.CFrame + c.HumanoidRootPart.CFrame.LookVector * 5
-            end
+            if h then h.Anchored = true; h.CFrame = c.HumanoidRootPart.CFrame + c.HumanoidRootPart.CFrame.LookVector * 5 end
         end
     end
     Rayfield:Notify({Title = "Hold", Content = "Todos no mesmo lugar!", Duration = 4})
 end})
-MTab:CreateButton({Name = "Chat: Sheriff + Murderer", Callback = function()
+CTab:CreateButton({Name = "Chat: Sheriff + Murderer", Callback = function()
     local tc = game:GetService("TextChatService"):WaitForChild("TextChannels")
     for _, ch in ipairs(tc:GetChildren()) do
         if ch.Name ~= "RBXSystem" then
@@ -1856,41 +1766,33 @@ MTab:CreateButton({Name = "Chat: Sheriff + Murderer", Callback = function()
         end
     end
 end})
-MTab:CreateInput({Name = "Fling Target", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
+CTab:CreateInput({Name = "Fling Target", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
     if not v or v == "" then return end
     local t = Players:FindFirstChild(v)
     if not t then Rayfield:Notify({Title = "Fling", Content = "Nao achou", Duration = 3}); return end
     Config.FlingTarget = t
     Rayfield:Notify({Title = "Fling", Content = "Alvo: "..t.Name, Duration = 3})
 end})
-MTab:CreateButton({Name = "Fling", Callback = function()
-    if not Config.FlingTarget then
-        Rayfield:Notify({Title = "Fling", Content = "Escolha alvo", Duration = 3}); return
-    end
+CTab:CreateButton({Name = "Fling (target)", Callback = function()
+    if not Config.FlingTarget then Rayfield:Notify({Title = "Fling", Content = "Escolha alvo", Duration = 3}); return end
     task.spawn(function() skidFling(Config.FlingTarget) end)
 end})
-MTab:CreateButton({Name = "Fling Sheriff", Callback = function()
-    local s = findSheriff()
-    if not s then Rayfield:Notify({Title = "Fling", Content = "Sem sheriff", Duration = 3}); return end
+CTab:CreateButton({Name = "Fling Sheriff", Callback = function()
+    local s = findSheriff(); if not s then Rayfield:Notify({Title = "Fling", Content = "Sem sheriff", Duration = 3}); return end
     task.spawn(function() skidFling(s) end)
 end})
-MTab:CreateButton({Name = "Fling Murderer", Callback = function()
-    local m = findMurderer()
-    if not m then Rayfield:Notify({Title = "Fling", Content = "Sem murderer", Duration = 3}); return end
+CTab:CreateButton({Name = "Fling Murderer", Callback = function()
+    local m = findMurderer(); if not m then Rayfield:Notify({Title = "Fling", Content = "Sem murderer", Duration = 3}); return end
     task.spawn(function() skidFling(m) end)
 end})
-
-local STab = Window:CreateTab("Sheriff", 4483362458)
-STab:CreateButton({Name = "Grab Gun", Callback = function()
+CTab:CreateButton({Name = "Grab Gun", Callback = function()
     local ok = grabGun()
     Rayfield:Notify({Title = "Grab Gun", Content = ok and "Pegou" or "Nada", Duration = 3})
 end})
-STab:CreateToggle({Name = "Auto Grab Gun", CurrentValue = false, Callback = function(v) Config.AutoGrabGun = v end})
-STab:CreateToggle({Name = "Auto Get Dropped Gun", CurrentValue = false, Callback = function(v) Config.AutoGetDroppedGun = v end})
-STab:CreateToggle({Name = "Exp. take via touch", CurrentValue = false, Callback = function(v) Config.GunDropTakeExp = v end})
-STab:CreateToggle({Name = "Auto Kill Arma", CurrentValue = false, Callback = function(v) Config.AutoKill_Sheriff = v end})
-STab:CreateSlider({Name = "Alcance Tiro", Range = {50, 1000}, Increment = 10, CurrentValue = 500, Callback = function(v) Config.AutoKill_GunRange = v end})
-STab:CreateButton({Name = "Teleport to dropped gun", Callback = function()
+CTab:CreateToggle({Name = "Auto Grab Gun", CurrentValue = false, Callback = function(v) Config.AutoGrabGun = v end})
+CTab:CreateToggle({Name = "Auto Get Dropped Gun", CurrentValue = false, Callback = function(v) Config.AutoGetDroppedGun = v end})
+CTab:CreateToggle({Name = "Exp. take via touch", CurrentValue = false, Callback = function(v) Config.GunDropTakeExp = v end})
+CTab:CreateButton({Name = "Teleport to dropped gun", Callback = function()
     local map = getMap(); if not map then return end
     local g = map:FindFirstChild("GunDrop")
     if not g then Rayfield:Notify({Title = "TP", Content = "Sem gun drop", Duration = 3}); return end
@@ -1909,11 +1811,20 @@ STab:CreateButton({Name = "Teleport to dropped gun", Callback = function()
     LocalPlayer.Backpack.ChildAdded:Wait()
     c:PivotTo(prev)
 end})
-STab:CreateButton({Name = "Copy sheriff username", Callback = function()
+CTab:CreateButton({Name = "Copy sheriff username", Callback = function()
     local s = findSheriff()
     if s and setclipboard then setclipboard(s.Name) end
 end})
+CTab:CreateButton({Name = "Copy murderer username", Callback = function()
+    local m = findMurderer()
+    if m and setclipboard then setclipboard(m.Name) end
+end})
+CTab:CreateToggle({Name = "Anti-Fling", CurrentValue = false, Callback = function(v)
+    Config.AntiFling = v
+    if v then enableAntiFling() else pcall(restGroups) end
+end})
 
+-- ABA 4: PLAYER
 local PTab = Window:CreateTab("Player", 4483362458)
 PTab:CreateSlider({Name = "Speed", Range = {16, 200}, Increment = 1, CurrentValue = 16, Callback = function(v)
     Config.Speed = v
@@ -1957,55 +1868,73 @@ PTab:CreateToggle({Name = "Noclip [N]", CurrentValue = false, Callback = functio
 end})
 invisToggleUI = PTab:CreateToggle({Name = "Invisible [I]", CurrentValue = false, Callback = function(v) setInvisible(v) end})
 PTab:CreateSlider({Name = "Invisible Y", Range = {1000, 50000}, Increment = 100, CurrentValue = 5000, Callback = function(v) Config.InvisibleY = v end})
-
-local UTab = Window:CreateTab("Universal", 4483362458)
-UTab:CreateToggle({Name = "CTRL+Click Teleport", CurrentValue = false, Callback = function(v) Config.CtrlClickTP = v end})
-UTab:CreateInput({Name = "Teleport to Player", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
+PTab:CreateToggle({Name = "CTRL+Click Teleport", CurrentValue = false, Callback = function(v) Config.CtrlClickTP = v end})
+PTab:CreateInput({Name = "Teleport to Player", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
     if not v or v == "" then return end
     local p = Players:FindFirstChild(v)
     if not p or not p.Character then return end
     local h = p.Character:FindFirstChild("HumanoidRootPart")
     if h then teleportTo(h.Position) end
 end})
-UTab:CreateInput({Name = "Spectate", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
+PTab:CreateInput({Name = "Spectate", CurrentValue = "", Placeholder = "Nome", Callback = function(v)
     if v and v ~= "" then spectatePlayer(v) end
 end})
-UTab:CreateButton({Name = "Parar Spectate", Callback = function() stopSpectate() end})
-UTab:CreateInput({Name = "Loop WS", CurrentValue = "16", Placeholder = "Valor", Callback = function(v) Config.LoopWS = tonumber(v) or 16 end})
-UTab:CreateInput({Name = "Loop FOV", CurrentValue = "70", Placeholder = "Valor", Callback = function(v) Config.LoopFOV = tonumber(v) or 70 end})
-UTab:CreateToggle({Name = "Loop WS + FOV", CurrentValue = false, Callback = function(v) Config.LoopWS_FOV = v end})
-UTab:CreateInput({Name = "Set FOV", CurrentValue = "70", Placeholder = "Valor", Callback = function(v)
+PTab:CreateButton({Name = "Parar Spectate", Callback = function() stopSpectate() end})
+PTab:CreateButton({Name = "Ir para Obby", Callback = function()
+    local p = findObby()
+    if p then teleportTo(p) else Rayfield:Notify({Title = "TP", Content = "Sem obby", Duration = 3}) end
+end})
+PTab:CreateButton({Name = "Ir para Centro", Callback = function() teleportTo(mapCenter()) end})
+PTab:CreateButton({Name = "Ir para Lobby", Callback = function()
+    local lb = workspace:FindFirstChild("Lobby")
+    if lb and lb:FindFirstChild("Spawns") then
+        local s = lb.Spawns:FindFirstChildWhichIsA("SpawnLocation")
+        if s then LocalPlayer.Character:MoveTo(s.Position) end
+    end
+end})
+PTab:CreateButton({Name = "Ir para Map (random)", Callback = function()
+    local m = getMap(); if not m then return end
+    local sp = m:FindFirstChild("Spawns")
+    if sp then
+        local list = sp:GetChildren()
+        if #list > 0 then LocalPlayer.Character:MoveTo(list[math.random(1, #list)].Position) end
+    end
+end})
+PTab:CreateInput({Name = "Loop WS", CurrentValue = "16", Placeholder = "Valor", Callback = function(v) Config.LoopWS = tonumber(v) or 16 end})
+PTab:CreateInput({Name = "Loop FOV", CurrentValue = "70", Placeholder = "Valor", Callback = function(v) Config.LoopFOV = tonumber(v) or 70 end})
+PTab:CreateToggle({Name = "Loop WS + FOV", CurrentValue = false, Callback = function(v) Config.LoopWS_FOV = v end})
+PTab:CreateInput({Name = "Set FOV", CurrentValue = "70", Placeholder = "Valor", Callback = function(v)
     local f = tonumber(v) or 70
     TweenService:Create(workspace.CurrentCamera, TweenInfo.new(1), {FieldOfView = f}):Play()
 end})
-UTab:CreateInput({Name = "WS Incremento", CurrentValue = "2", Placeholder = "Valor", Callback = function(v)
+PTab:CreateInput({Name = "WS Incremento", CurrentValue = "2", Placeholder = "Valor", Callback = function(v)
     Config.WSInc = tonumber(v) or 2
 end})
-UTab:CreateButton({Name = "Aumentar WS", Callback = function()
+PTab:CreateButton({Name = "Aumentar WS", Callback = function()
     local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if h then
         Config.Speed = Config.Speed + Config.WSInc
         h.WalkSpeed = h.WalkSpeed + Config.WSInc
     end
 end})
-UTab:CreateButton({Name = "Diminuir WS", Callback = function()
+PTab:CreateButton({Name = "Diminuir WS", Callback = function()
     local h = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if h then
         Config.Speed = Config.Speed - Config.WSInc
         h.WalkSpeed = h.WalkSpeed - Config.WSInc
     end
 end})
-UTab:CreateButton({Name = "Get Ping", Callback = function()
+PTab:CreateButton({Name = "Get Ping", Callback = function()
     Rayfield:Notify({Title = "Ping", Content = math.floor(LocalPlayer:GetNetworkPing() * 1000).."ms", Duration = 3})
 end})
-UTab:CreateButton({Name = "FPS Boost", Callback = function()
+PTab:CreateButton({Name = "FPS Boost", Callback = function()
     pcall(fpsBoost)
     Rayfield:Notify({Title = "FPS", Content = "Aplicado!", Duration = 3})
 end})
-UTab:CreateButton({Name = "Developer Console", Callback = function()
+PTab:CreateButton({Name = "Developer Console", Callback = function()
     game.StarterGui:SetCore("DevConsoleVisible", true)
 end})
-UTab:CreateButton({Name = "God Mode (instavel)", Callback = function()
+PTab:CreateButton({Name = "God Mode (instavel)", Callback = function()
     local Cam = workspace.CurrentCamera
     local Pos, Char = Cam.CFrame, LocalPlayer.Character
     local Hum = Char and Char:FindFirstChildWhichIsA("Humanoid")
@@ -2020,76 +1949,45 @@ UTab:CreateButton({Name = "God Mode (instavel)", Callback = function()
     if s then s.Disabled = true; task.wait(); s.Disabled = false end
     nH.Health = nH.MaxHealth
 end})
-UTab:CreateButton({Name = "Copy murderer username", Callback = function()
-    local m = findMurderer()
-    if m and setclipboard then setclipboard(m.Name) end
-end})
 
-local TTab = Window:CreateTab("Teleporte", 4483362458)
-TTab:CreateButton({Name = "Ir para Obby", Callback = function()
-    local p = findObby()
-    if p then teleportTo(p) else Rayfield:Notify({Title = "TP", Content = "Sem obby", Duration = 3}) end
-end})
-TTab:CreateButton({Name = "Ir para Centro", Callback = function() teleportTo(mapCenter()) end})
-TTab:CreateButton({Name = "Ir para Lobby", Callback = function()
-    local lb = workspace:FindFirstChild("Lobby")
-    if lb and lb:FindFirstChild("Spawns") then
-        local s = lb.Spawns:FindFirstChildWhichIsA("SpawnLocation")
-        if s then LocalPlayer.Character:MoveTo(s.Position) end
-    end
-end})
-TTab:CreateButton({Name = "Ir para Map (random)", Callback = function()
-    local m = getMap(); if not m then return end
-    local sp = m:FindFirstChild("Spawns")
-    if sp then
-        local list = sp:GetChildren()
-        if #list > 0 then LocalPlayer.Character:MoveTo(list[math.random(1, #list)].Position) end
-    end
-end})
-
-local PfTab = Window:CreateTab("Performance", 4483362458)
-PfTab:CreateToggle({Name = "Sem Neblina", CurrentValue = false, Callback = function(v) Config.Perf_NoFog = v end})
-PfTab:CreateToggle({Name = "Sem Sombras", CurrentValue = false, Callback = function(v) Config.Perf_NoShadow = v end})
-PfTab:CreateToggle({Name = "Textura Lisa", CurrentValue = false, Callback = function(v) Config.Perf_SmoothTexture = v end})
-PfTab:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) Config.Perf_FullBright = v end})
-PfTab:CreateButton({Name = "Resetar Tudo", Callback = function()
+-- ABA 5: MISC
+local MTab2 = Window:CreateTab("Misc", 4483362458)
+MTab2:CreateToggle({Name = "Sem Neblina", CurrentValue = false, Callback = function(v) Config.Perf_NoFog = v end})
+MTab2:CreateToggle({Name = "Sem Sombras", CurrentValue = false, Callback = function(v) Config.Perf_NoShadow = v end})
+MTab2:CreateToggle({Name = "Textura Lisa", CurrentValue = false, Callback = function(v) Config.Perf_SmoothTexture = v end})
+MTab2:CreateToggle({Name = "Full Bright", CurrentValue = false, Callback = function(v) Config.Perf_FullBright = v end})
+MTab2:CreateButton({Name = "Resetar Performance", Callback = function()
     Config.Perf_NoFog = false; Config.Perf_NoShadow = false
     Config.Perf_SmoothTexture = false; Config.Perf_FullBright = false
     restL("bright"); restL("fog"); restL("shadow"); restMats(); restShadows()
     perfState.bright = false; perfState.nofog = false
     perfState.noshadow = false; perfState.smooth = false
 end})
-
-local ETab = Window:CreateTab("Extras", 4483362458)
-ETab:CreateToggle({Name = "Anti-Kick", CurrentValue = false, Callback = function(v) Config.AntiKick = v end})
-ETab:CreateToggle({Name = "Anti-Ragdoll", CurrentValue = false, Callback = function(v) Config.AntiRagdoll = v end})
-ETab:CreateToggle({Name = "Kill Notifier", CurrentValue = false, Callback = function(v) Config.KillNotifier = v end})
-ETab:CreateToggle({Name = "Auto Dodge", CurrentValue = false, Callback = function(v) Config.AutoDodge = v end})
-ETab:CreateToggle({Name = "Anti-AFK", CurrentValue = false, Callback = function(v) Config.AntiAFK = v end})
-ETab:CreateToggle({Name = "Murderer Alert", CurrentValue = false, Callback = function(v) Config.MurdererAlert = v end})
-ETab:CreateSlider({Name = "Alerta Range", Range = {30, 200}, Increment = 10, CurrentValue = 80, Callback = function(v) Config.MurdererAlertRange = v end})
-ETab:CreateToggle({Name = "Ignore knife throws", CurrentValue = false, Callback = function(v) Config.IgnoreKnifeThrows = v end})
-ETab:CreateButton({Name = "Lista de Players", Callback = function()
+MTab2:CreateToggle({Name = "Anti-Kick", CurrentValue = false, Callback = function(v) Config.AntiKick = v end})
+MTab2:CreateToggle({Name = "Anti-Ragdoll", CurrentValue = false, Callback = function(v) Config.AntiRagdoll = v end})
+MTab2:CreateToggle({Name = "Kill Notifier", CurrentValue = false, Callback = function(v) Config.KillNotifier = v end})
+MTab2:CreateToggle({Name = "Auto Dodge", CurrentValue = false, Callback = function(v) Config.AutoDodge = v end})
+MTab2:CreateToggle({Name = "Anti-AFK", CurrentValue = false, Callback = function(v) Config.AntiAFK = v end})
+MTab2:CreateToggle({Name = "Murderer Alert", CurrentValue = false, Callback = function(v) Config.MurdererAlert = v end})
+MTab2:CreateSlider({Name = "Alerta Range", Range = {30, 200}, Increment = 10, CurrentValue = 80, Callback = function(v) Config.MurdererAlertRange = v end})
+MTab2:CreateToggle({Name = "Ignore knife throws", CurrentValue = false, Callback = function(v) Config.IgnoreKnifeThrows = v end})
+MTab2:CreateButton({Name = "Lista de Players", Callback = function()
     local msg = ""
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then msg = msg..p.Name.." - "..getRole(p).."\n" end
     end
     Rayfield:Notify({Title = "Players", Content = msg, Duration = 10})
 end})
-ETab:CreateButton({Name = "Server Hop", Callback = function()
+MTab2:CreateButton({Name = "Server Hop", Callback = function()
     task.spawn(function()
         pcall(function()
             local HS = game:GetService("HttpService")
             local TS = game:GetService("TeleportService")
             local url = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
             local res
-            if syn and syn.request then
-                res = syn.request({Url = url, Method = "GET"}).Body
-            elseif request then
-                res = request({Url = url, Method = "GET"}).Body
-            else
-                res = game:HttpGet(url)
-            end
+            if syn and syn.request then res = syn.request({Url = url, Method = "GET"}).Body
+            elseif request then res = request({Url = url, Method = "GET"}).Body
+            else res = game:HttpGet(url) end
             local data = HS:JSONDecode(res)
             if data and data.data then
                 for _, s in ipairs(data.data) do
@@ -2103,14 +2001,8 @@ ETab:CreateButton({Name = "Server Hop", Callback = function()
     end)
 end})
 
-local PrTab = Window:CreateTab("Protecao", 4483362458)
-PrTab:CreateToggle({Name = "Anti-Fling", CurrentValue = false, Callback = function(v)
-    Config.AntiFling = v
-    if v then enableAntiFling() else pcall(restGroups) end
-end})
-
 -- ============================================================
--- KEYBINDS (só funciona em PC)
+-- KEYBINDS
 -- ============================================================
 UserInputService.InputBegan:Connect(function(inp, gp)
     if gp then return end
