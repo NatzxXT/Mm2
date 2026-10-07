@@ -40,47 +40,8 @@ if not isMM2() then
     avisoGui.DisplayOrder = 9999
     pcall(function() avisoGui.Parent = game:GetService("CoreGui") end)
 
-    -- Pega nome real via API (com fallback pra diversos executores)
+    -- Nome base (sem HTTP, não trava)
     local gameDisplayName = game.Name or "?"
-    pcall(function()
-        local HttpService = game:GetService("HttpService")
-        local url = "https://games.roblox.com/v1/games?universeIds=" .. tostring(game.GameId)
-        local response = nil
-
-        -- Tenta vários métodos de HTTP (compatibilidade com mobile)
-        if syn and syn.request then
-            local ok1, res = pcall(function()
-                return syn.request({ Url = url, Method = "GET" })
-            end)
-            if ok1 and res and res.Body then response = res.Body end
-        end
-
-        if not response and request then
-            local ok2, res = pcall(function()
-                return request({ Url = url, Method = "GET" })
-            end)
-            if ok2 and res and res.Body then response = res.Body end
-        end
-
-        if not response and http_request then
-            local ok3, res = pcall(function()
-                return http_request({ Url = url, Method = "GET" })
-            end)
-            if ok3 and res and res.Body then response = res.Body end
-        end
-
-        if not response then
-            local ok4, res = pcall(function() return game:HttpGet(url) end)
-            if ok4 and res then response = res end
-        end
-
-        if response then
-            local data = HttpService:JSONDecode(response)
-            if data and data.data and data.data[1] and data.data[1].name then
-                gameDisplayName = data.data[1].name
-            end
-        end
-    end)
 
     local frame = Instance.new("Frame")
     frame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -121,6 +82,45 @@ if not isMM2() then
     msg.TextWrapped = true
     msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
     msg.Parent = frame
+
+    -- Tenta pegar nome real EM BACKGROUND (não trava o aviso)
+    task.spawn(function()
+        pcall(function()
+            local HttpService = game:GetService("HttpService")
+            local url = "https://games.roblox.com/v1/games?universeIds=" .. tostring(game.GameId)
+            local response = nil
+
+            if syn and syn.request then
+                local ok, res = pcall(function()
+                    return syn.request({ Url = url, Method = "GET" })
+                end)
+                if ok and res and res.Body then response = res.Body end
+            elseif request then
+                local ok, res = pcall(function()
+                    return request({ Url = url, Method = "GET" })
+                end)
+                if ok and res and res.Body then response = res.Body end
+            elseif http_request then
+                local ok, res = pcall(function()
+                    return http_request({ Url = url, Method = "GET" })
+                end)
+                if ok and res and res.Body then response = res.Body end
+            else
+                local ok, res = pcall(function() return game:HttpGet(url, true) end)
+                if ok and res then response = res end
+            end
+
+            if response then
+                local data = HttpService:JSONDecode(response)
+                if data and data.data and data.data[1] and data.data[1].name then
+                    gameDisplayName = data.data[1].name
+                    if msg and msg.Parent then
+                        msg.Text = "Este script só funciona no Murder Mystery 2 (MM2).\n\nJogo atual: " .. tostring(gameDisplayName) .. "\nPlaceId: " .. tostring(game.PlaceId)
+                    end
+                end
+            end
+        end)
+    end)
 
     task.spawn(function()
         for i = 0, 1, 0.1 do
