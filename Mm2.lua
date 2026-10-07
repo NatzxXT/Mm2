@@ -249,7 +249,6 @@ local function inAnyCharacter(obj)
     return false
 end
 
--- NOVO: considera backpack também (arma equipada não deve contar como "no chão")
 local function isInPlayerInventory(obj)
     for _, p in ipairs(Players:GetPlayers()) do
         local char = p.Character
@@ -315,46 +314,62 @@ local function attackWith(tool, targetChar)
     end)
 end
 
--- Finders (CORRIGIDO)
-local function getToolHandle(tool)
-    if not tool then return nil end
-    if tool:IsA("Tool") then
-        return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
-    elseif tool:IsA("BasePart") then
-        return tool
-    elseif tool:IsA("Model") then
-        return tool.PrimaryPart or tool:FindFirstChildWhichIsA("BasePart")
+-- ============================================================
+-- GUN DETECTION (corrigido - usa caminho oficial do MM2)
+-- ============================================================
+local function isGunName(name)
+    if not name then return false end
+    local n = tostring(name):lower()
+    return n:find("gun") or n:find("revolver") or n:find("pistol")
+        or n:find("weapon") or n:find("handgun") or n:find("firearm")
+end
+
+local function getGunContainer(obj)
+    if not obj then return nil end
+    if obj:IsA("Tool") then
+        return obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+    elseif obj:IsA("BasePart") or obj:IsA("MeshPart") then
+        return obj
+    elseif obj:IsA("Model") then
+        return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
     end
     return nil
 end
 
-local function isGunName(name)
-    local n = name:lower()
-    return n:find("gun") or n:find("revolver") or n:find("pistol") or n:find("weapon")
+-- MM2 larga a arma em workspace.Normal.GunDrop (ou workspace.GunDrop)
+local function getAllGunDrops()
+    local list, seen = {}, {}
+    local function add(obj)
+        if not obj or seen[obj] then return end
+        seen[obj] = true
+        list[#list+1] = obj
+    end
+
+    -- Caminho principal do MM2
+    local normal = workspace:FindFirstChild("Normal")
+    if normal then
+        local gd = normal:FindFirstChild("GunDrop")
+        if gd then add(gd) end
+    end
+    local gd = workspace:FindFirstChild("GunDrop")
+    if gd then add(gd) end
+
+    -- Se achou o container principal, retorna
+    if #list > 0 then return list end
+
+    -- Fallback genérico
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if (obj:IsA("Tool") or obj:IsA("Model")) and isGunName(obj.Name)
+            and not isInPlayerInventory(obj) then
+            add(obj)
+        end
+    end
+    return list
 end
 
 local function findGunOnGround()
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
-            return obj
-        end
-    end
-    for _, folderName in ipairs({"Guns","Items","Tools","Weapons","DroppedItems","Gun","Drops","Dropped"}) do
-        local folder = workspace:FindFirstChild(folderName)
-        if folder then
-            for _, obj in ipairs(folder:GetDescendants()) do
-                if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
-                    return obj
-                end
-            end
-        end
-    end
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
-            return obj
-        end
-    end
-    return nil
+    local drops = getAllGunDrops()
+    return drops[1]
 end
 
 local function findCoins()
@@ -507,7 +522,7 @@ local function updatePlayers()
     end
 end
 
--- ESP Gun (CORRIGIDO - suporta várias armas)
+-- ESP Gun (usando caminho oficial Normal.GunDrop)
 local gunESPCache = {}
 
 local function updateGunESP()
@@ -520,30 +535,29 @@ local function updateGunESP()
     local my = myPos()
     local active = {}
     local maxDsq = Config.ESP_GunMaxDist * Config.ESP_GunMaxDist
+    local guns = getAllGunDrops()
 
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("Tool") and isGunName(obj.Name) and not isInPlayerInventory(obj) then
-            local handle = getToolHandle(obj)
-            if handle then
-                local ok = true
-                if my then
-                    local d = handle.Position - my
-                    if d.X*d.X + d.Y*d.Y + d.Z*d.Z > maxDsq then ok = false end
-                end
-                if ok then
-                    active[handle] = true
-                    if not gunESPCache[handle] or not gunESPCache[handle].Parent then
-                        if gunESPCache[handle] then pcall(function() gunESPCache[handle]:Destroy() end) end
-                        local hl = Instance.new("Highlight")
-                        hl.Adornee = handle
-                        hl.FillColor = Color3.fromRGB(255, 255, 0)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 0)
-                        hl.FillTransparency = 0.3
-                        hl.OutlineTransparency = 0
-                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        hl.Parent = handle
-                        gunESPCache[handle] = hl
-                    end
+    for _, gun in ipairs(guns) do
+        local handle = getGunContainer(gun) or gun
+        if handle then
+            local ok = true
+            if my then
+                local d = handle.Position - my
+                if d.X*d.X + d.Y*d.Y + d.Z*d.Z > maxDsq then ok = false end
+            end
+            if ok then
+                active[handle] = true
+                if not gunESPCache[handle] or not gunESPCache[handle].Parent then
+                    if gunESPCache[handle] then pcall(function() gunESPCache[handle]:Destroy() end) end
+                    local hl = Instance.new("Highlight")
+                    hl.Adornee = handle
+                    hl.FillColor = Color3.fromRGB(255, 255, 0)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    hl.FillTransparency = 0.3
+                    hl.OutlineTransparency = 0
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Parent = handle
+                    gunESPCache[handle] = hl
                 end
             end
         end
@@ -959,7 +973,7 @@ task.spawn(function()
     end
 end)
 
--- Hitbox Expander (CORRIGIDO - sem mexer em CanCollide/Transparency)
+-- Hitbox Expander (sem mexer em CanCollide/Transparency)
 local hbSaved = setmetatable({}, {__mode = "k"})
 task.spawn(function()
     while task.wait(0.15) do
@@ -1363,7 +1377,7 @@ task.spawn(function()
     end
 end)
 
--- Anti-Fling (CORRIGIDO - pcall individual)
+-- Anti-Fling (pcall individual)
 pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Self") end)
 pcall(function() PhysicsService:RegisterCollisionGroup("MM2_Others") end)
 pcall(function() PhysicsService:CollisionGroupSetCollidable("MM2_Self", "MM2_Others", false) end)
@@ -1472,7 +1486,7 @@ RunService.Heartbeat:Connect(function()
     end)
 end)
 
--- Invisible (CORRIGIDO - sem desync)
+-- Invisible (sem desync)
 local invisSeat = nil
 local invisOn = false
 local invisToggleUI = nil
@@ -1588,7 +1602,7 @@ local function mapCenter()
     return Vector3.new(0, 10, 0)
 end
 
--- Grab Gun (CORRIGIDO)
+-- Grab Gun
 local grabbing = false
 local function grabGun()
     if grabbing then return false end
@@ -1604,8 +1618,8 @@ local function grabGun()
 
     local gun = findGunOnGround()
     if not gun then return false end
-    local handle = getToolHandle(gun)
-    if not handle then return false end
+    local handle = getGunContainer(gun) or gun
+    if not handle or not handle:IsA("BasePart") then return false end
 
     grabbing = true
     local origCF = hrp.CFrame
@@ -1613,7 +1627,7 @@ local function grabGun()
 
     pcall(function() char:PivotTo(CFrame.new(handle.Position + Vector3.new(0, 2, 0))) end)
     hrp.Velocity = Vector3.zero
-    task.wait(0.08)
+    task.wait(0.1)
 
     if firetouchinterest then
         local parts = {hrp}
@@ -1630,26 +1644,16 @@ local function grabGun()
     end
 
     local prompt = gun:FindFirstChildOfClass("ProximityPrompt")
-    if not prompt then
-        for _, d in ipairs(gun:GetDescendants()) do
-            if d:IsA("ProximityPrompt") then prompt = d break end
-        end
-    end
     if prompt and fireproximityprompt then
         pcall(function() fireproximityprompt(prompt) end)
     end
 
     local cd = gun:FindFirstChildOfClass("ClickDetector")
-    if not cd then
-        for _, d in ipairs(gun:GetDescendants()) do
-            if d:IsA("ClickDetector") then cd = d break end
-        end
-    end
     if cd and fireclickdetector then
         pcall(function() fireclickdetector(cd) end)
     end
 
-    task.wait(0.1)
+    task.wait(0.15)
     if hrp.Parent then
         hrp.CFrame = origCF
         hrp.Velocity = origVel
@@ -1668,7 +1672,10 @@ task.spawn(function()
                     for _, t in ipairs(char:GetChildren()) do
                         if t:IsA("Tool") and t.Name:lower():find("gun") then has = true break end
                     end
-                    if not has and findGunOnGround() then pcall(grabGun) end
+                    if not has then
+                        local g = findGunOnGround()
+                        if g then pcall(grabGun) end
+                    end
                 end
             end
         end)
@@ -1803,12 +1810,17 @@ VPTab:CreateToggle({
 VPTab:CreateButton({
     Name = "Debug ESP Gun",
     Callback = function()
-        local gun = findGunOnGround()
-        if gun then
-            Rayfield:Notify({Title = "Debug Gun", Content = "Achou: " .. gun.Name, Duration = 6})
-        else
-            Rayfield:Notify({Title = "Debug Gun", Content = "Nao achou", Duration = 6})
-        end
+        local txt = ""
+        local normal = workspace:FindFirstChild("Normal")
+        local gd1 = normal and normal:FindFirstChild("GunDrop")
+        local gd2 = workspace:FindFirstChild("GunDrop")
+        if gd1 then txt = txt .. "Normal.GunDrop: " .. gd1.ClassName .. " (" .. gd1.Name .. ")\n"
+        else txt = txt .. "Normal.GunDrop: nil\n" end
+        if gd2 then txt = txt .. "Workspace.GunDrop: " .. gd2.ClassName .. "\n"
+        else txt = txt .. "Workspace.GunDrop: nil\n" end
+        local drops = getAllGunDrops()
+        txt = txt .. "Total detectados: " .. #drops
+        Rayfield:Notify({Title = "Debug GunDrop", Content = txt, Duration = 10})
     end,
 })
 
